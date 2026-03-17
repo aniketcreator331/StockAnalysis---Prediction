@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+yfinance
+pandas
+numpy
+tensorflow
+scikit-learn
+websockets
+keras
+python-multipart
+requests 
+python-dotenv
