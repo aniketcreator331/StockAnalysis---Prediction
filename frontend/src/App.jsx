@@ -6,14 +6,32 @@ import PredictionPage from './pages/PredictionPage';
 import ComparisonPage from './pages/ComparisonPage';
 import CompareTwoPage from './pages/CompareTwoPage';
 import TickersPage from './pages/TickersPage';
-import { Moon, Sun, DollarSign, HelpCircle } from 'lucide-react';
+import { Moon, Sun, DollarSign, HelpCircle, User, UserPlus } from 'lucide-react';
 import { useCurrency } from './contexts/CurrencyContext';
 import HelpModal from './components/HelpModal';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
+import { authApi } from './services/api';
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const { currency, setCurrency } = useCurrency();
+  const [user, setUser] = useState(null);
+  
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        const data = await authApi.googleLogin(tokenResponse.access_token);
+        console.log("Logged in successfully:", data);
+        setUser(data.user);
+      } catch (error) {
+        console.error("Login failed:", error);
+      }
+    },
+    onError: () => {
+      console.log('Login Failed');
+    }
+  });
 
   useEffect(() => {
     if (darkMode) {
@@ -55,11 +73,38 @@ function App() {
             </button>
             <button 
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors flex items-center justify-center"
+              className="p-2 mr-2 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors flex items-center justify-center"
               title="Toggle Dark Mode"
             >
               {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
             </button>
+            
+            <div className="flex items-center gap-2">
+              {user ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-900/50">
+                   <User size={16} />
+                   <span className="text-sm font-bold">{user.name}</span>
+                   <button onClick={() => setUser(null)} className="ml-2 text-xs opacity-70 hover:opacity-100 uppercase font-semibold text-green-900 dark:text-green-100">Logout</button>
+                </div>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => handleGoogleLogin()}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-darkCard hover:bg-gray-50 dark:hover:bg-darkBorder border border-gray-200 dark:border-darkBorder rounded-xl transition-all shadow-sm"
+                  >
+                    <User size={16} />
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => handleGoogleLogin()}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-all shadow-sm shadow-primary/30"
+                  >
+                    <UserPlus size={16} />
+                    Sign Up
+                  </button>
+                </>
+              )}
+            </div>
           </header>
           
           <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-darkBg p-6">

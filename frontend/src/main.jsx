@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import './index.css'
 import App from './App.jsx'
 
@@ -8,10 +9,12 @@ import { UserDataProvider } from './contexts/UserDataContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <CurrencyProvider>
-      <UserDataProvider>
-        <App />
-      </UserDataProvider>
-    </CurrencyProvider>
+    <GoogleOAuthProvider clientId="799612911628-aaqbfkc08lbeiq6irb3ulltml24ougtc.apps.googleusercontent.com">
+      <CurrencyProvider>
+        <UserDataProvider>
+          <App />
+        </UserDataProvider>
+      </CurrencyProvider>
+    </GoogleOAuthProvider>
   </StrictMode>,
 )

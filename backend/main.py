@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from stock_api import router as stock_router
+from auth_api import router as auth_router
 
 app = FastAPI(title="Stock Market Analysis Dashboard API")
 
@@ -13,6 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(stock_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
 
 @app.get("/")
 def read_root():

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export const stockApi = {
   getDashboardData: async (ticker) => {
@@ -30,6 +30,21 @@ export const stockApi = {
 
   getRecommendations: async () => {
     const response = await axios.get(`${API_BASE_URL}/recommendations`);
+    return response.data;
+  }
+};
+
+export const authApi = {
+  register: async (email, password) => {
+    const response = await axios.post(`${API_BASE_URL}/auth/register`, { email, password });
+    return response.data;
+  },
+  login: async (email, password) => {
+    const response = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
+    return response.data;
+  },
+  googleLogin: async (token) => {
+    const response = await axios.post(`${API_BASE_URL}/auth/google`, { token });
     return response.data;
   }
 };
