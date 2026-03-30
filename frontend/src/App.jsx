@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
+import HomePage from './pages/HomePage';
 import Dashboard from './pages/Dashboard';
 import PredictionPage from './pages/PredictionPage';
 import ComparisonPage from './pages/ComparisonPage';
 import CompareTwoPage from './pages/CompareTwoPage';
 import TickersPage from './pages/TickersPage';
-import { Moon, Sun, DollarSign, HelpCircle, User, UserPlus } from 'lucide-react';
+import DemoTradingPage from './pages/DemoTradingPage';
+import CalculatorsPage from './pages/CalculatorsPage';
+import { Moon, Sun, DollarSign, HelpCircle, User, UserPlus, Settings } from 'lucide-react';
 import { useCurrency } from './contexts/CurrencyContext';
+import { useAuth } from './contexts/AuthContext';
 import HelpModal from './components/HelpModal';
+import SettingsModal from './components/SettingsModal';
 import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 import { authApi } from './services/api';
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { currency, setCurrency } = useCurrency();
-  const [user, setUser] = useState(null);
+  const { user, setUser } = useAuth();
   
   const handleGoogleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -78,6 +84,13 @@ function App() {
             >
               {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
             </button>
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 mr-2 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors flex items-center justify-center text-gray-600 dark:text-gray-300"
+              title="Settings"
+            >
+              <Settings size={20} />
+            </button>
             
             <div className="flex items-center gap-2">
               {user ? (
@@ -110,12 +123,14 @@ function App() {
           <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-darkBg p-6">
             <div className="flex-1">
               <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={<HomePage />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/predictions" element={<PredictionPage />} />
                 <Route path="/comparison" element={<ComparisonPage />} />
                 <Route path="/comparetwo" element={<CompareTwoPage />} />
                 <Route path="/tickers" element={<TickersPage />} />
+                <Route path="/demotrading" element={<DemoTradingPage />} />
+                <Route path="/calculators" element={<CalculatorsPage />} />
               </Routes>
             </div>
             
@@ -146,6 +161,14 @@ function App() {
       
       {/* Global Modals */}
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        darkMode={darkMode} 
+        setDarkMode={setDarkMode} 
+        user={user}
+        setUser={setUser}
+      />
     </Router>
   );
 }

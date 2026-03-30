@@ -23,6 +23,10 @@ def create_dataset(dataset, time_step=60):
     return np.array(X), np.array(Y)
 
 def train_model(ticker="AAPL", period="2y"):
+    if 'Sequential' not in globals():
+        print("Tensorflow not available, skipping actual model training.")
+        return False
+        
     if not os.path.exists(MODEL_DIR):
         os.makedirs(MODEL_DIR)
 

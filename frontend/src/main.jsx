@@ -6,15 +6,18 @@ import App from './App.jsx'
 
 import { CurrencyProvider } from './contexts/CurrencyContext.jsx'
 import { UserDataProvider } from './contexts/UserDataContext.jsx'
+import { AuthProvider } from './contexts/AuthContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <GoogleOAuthProvider clientId="799612911628-aaqbfkc08lbeiq6irb3ulltml24ougtc.apps.googleusercontent.com">
-      <CurrencyProvider>
-        <UserDataProvider>
-          <App />
-        </UserDataProvider>
-      </CurrencyProvider>
+      <AuthProvider>
+        <CurrencyProvider>
+          <UserDataProvider>
+            <App />
+          </UserDataProvider>
+        </CurrencyProvider>
+      </AuthProvider>
     </GoogleOAuthProvider>
   </StrictMode>,
 )

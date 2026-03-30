@@ -1,0 +1,31 @@
+services:
+  # The Python FastAPI Backend
+  - type: web
+    name: stock-dashboard-backend
+    env: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false # User can supply their own Alpha Vantage Key in Render Dashboard
+
+  # The React/Vite Frontend
+  - type: web
+    name: stock-dashboard-frontend
+    env: node
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run preview -- --port $PORT --host 0.0.0.0" # Start vite preview server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: stock-dashboard-backend
+          property: url
+        # Wait, fromService URL doesn't append /api, so we will handle that natively or tell them to modify the service URL.
+        # Actually it's better to tell VITE_API_BASE_URL to just use the pure URL and we append /api in React, but currently our api.js has a fallback.

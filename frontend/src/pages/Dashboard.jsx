@@ -5,7 +5,6 @@ import CandlestickChart from '../charts/CandlestickChart';
 import { Banknote, TrendingUp, TrendingDown, Clock, Activity, Search, Bookmark, BookmarkCheck } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useUserData } from '../contexts/UserDataContext';
-import PriceAlertsCard from '../components/PriceAlertsCard';
 
 const Dashboard = () => {
   const { formatPrice } = useCurrency();
@@ -159,24 +158,21 @@ const Dashboard = () => {
           </div>
 
           {/* Lower Section Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Chart Section */}
-            <div className="lg:col-span-2 bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-6 flex items-center">
-                <Activity className="mr-2 text-primary" size={20}/>
-                Price History
-              </h2>
-              <CandlestickChart data={chartData} timeInterval={intervalOption} />
+            <div className="lg:col-span-3 bg-white dark:bg-darkCard p-6 rounded-3xl shadow-lg shadow-gray-200/40 dark:shadow-black/20 border border-gray-100 dark:border-darkBorder transition-all hover:shadow-xl relative overflow-hidden group">
+               {/* Decorative Gradient Background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent dark:from-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl z-0 pointer-events-none"></div>
+              
+              <div className="relative z-10 w-full">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
+                  <Activity className="mr-3 text-primary" size={24}/>
+                  Interactive Price History
+                </h2>
+                <div className="w-full h-[500px]">
+                  <CandlestickChart data={chartData} timeInterval={intervalOption} />
+                </div>
+              </div>
             </div>
-
-            {/* Price Alerts Section */}
-            <div className="lg:col-span-1">
-              <PriceAlertsCard 
-                currentTicker={ticker} 
-                currentPrice={dashboardData?.price} 
-              />
-            </div>
-          </div>
         </>
       )}
     </div>

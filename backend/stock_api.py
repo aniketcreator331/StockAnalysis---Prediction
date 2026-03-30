@@ -4,7 +4,18 @@ import prediction_model
 
 router = APIRouter()
 
-TOP_STOCKS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "NFLX", "INTC", "AMD"]
+TOP_STOCKS = [
+    "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "JPM", "JNJ", "V", 
+    "WMT", "PG", "MA", "UNH", "DIS", "HD", "BAC", "XOM", "NFLX", "INTC", 
+    "AMD", "CSCO", "PFE", "KO", "PEP", "ABBV", "CVX", "COST", "MCD", "T",
+    "NKE", "ADBE", "CRM", "ABT", "ORCL", "QCOM", "VZ", "CMCSA", "IBM", "TXN",
+    "AVGO", "LLY", "PM", "UNP", "LIN", "WFC", "HON", "RTX", "MDT", "SLB",
+    "BA", "BMY", "GE", "PYPL", "INTU", "SBUX", "SPGI", "CAT", "GS", "C",
+    "MS", "BLK", "SYK", "TMO", "GILD", "LMT", "MMM", "AMGN", "DE", "ISRG",
+    "NOW", "CVS", "ZTS", "TGT", "LOW", "TJX", "BIIB", "MO", "CHTR", "CB",
+    "CI", "MDLZ", "BDX", "FDX", "MMC", "ITW", "CME", "SO", "DUK", "PGR",
+    "ECL", "FIS", "EW", "NSC", "WM", "CSX", "AON", "KMB", "PSA", "NEM"
+]
 
 @router.get("/dashboard/{ticker}")
 def get_dashboard_summary(ticker: str):

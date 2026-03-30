@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Activity, BarChart2, Layers, ArrowLeftRight, BookOpen, Clock, Bookmark, Search } from 'lucide-react';
+import { Home, Activity, BarChart2, Layers, ArrowLeftRight, BookOpen, Clock, Bookmark, Search, ShoppingCart, Calculator } from 'lucide-react';
 import { useUserData } from '../contexts/UserDataContext';
 
 const Sidebar = () => {
@@ -13,6 +13,16 @@ const Sidebar = () => {
       </div>
       
       <nav className="flex-1 mt-6 px-4 space-y-2">
+        <NavLink 
+          to="/" 
+          className={({ isActive }) => 
+            `flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary border-l-4 border-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-darkBorder hover:text-gray-900 dark:hover:text-white'}`
+          }
+        >
+          <Home size={20} className="mr-4" />
+          <span className="font-medium">Home Page</span>
+        </NavLink>
+        
         <NavLink 
           to="/dashboard" 
           className={({ isActive }) => 
@@ -61,6 +71,26 @@ const Sidebar = () => {
         >
           <BookOpen size={20} className="mr-4" />
           <span className="font-medium">Stock Directory</span>
+        </NavLink>
+
+        <NavLink 
+          to="/demotrading" 
+          className={({ isActive }) => 
+            `flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary border-l-4 border-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-darkBorder hover:text-gray-900 dark:hover:text-white'}`
+          }
+        >
+          <ShoppingCart size={20} className="mr-4 text-emerald-500" />
+          <span className="font-medium">Demo Trading</span>
+        </NavLink>
+
+        <NavLink 
+          to="/calculators" 
+          className={({ isActive }) => 
+            `flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${isActive ? 'bg-primary/10 text-primary border-l-4 border-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-darkBorder hover:text-gray-900 dark:hover:text-white'}`
+          }
+        >
+          <Calculator size={20} className="mr-4 text-purple-500" />
+          <span className="font-medium">Calculators</span>
         </NavLink>
       </nav>
 
@@ -113,11 +143,6 @@ const Sidebar = () => {
             </div>
           </div>
         )}
-      </div>
-      
-      <div className="p-4 m-4 border border-gray-200 dark:border-darkBorder rounded-xl bg-gray-50 dark:bg-darkBg/50 text-sm text-gray-500 dark:text-gray-400">
-        <p className="font-semibold mb-2">Power Mode Active</p>
-        <p>LSTM forecasting running in background via FastAPI.</p>
       </div>
     </div>
   );

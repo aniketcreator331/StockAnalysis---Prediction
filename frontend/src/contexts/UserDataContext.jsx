@@ -1,45 +1,46 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const UserDataContext = createContext();
 
 export const useUserData = () => useContext(UserDataContext);
 
 export const UserDataProvider = ({ children }) => {
-  const [followedStocks, setFollowedStocks] = useState(() => {
-    const saved = localStorage.getItem('followedStocks');
-    return saved ? JSON.parse(saved) : ['AAPL', 'MSFT'];
-  });
+  const { userEmail } = useAuth();
 
-  const [searchHistory, setSearchHistory] = useState(() => {
-    const saved = localStorage.getItem('searchHistory');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const getSavedData = (key, defaultVal) => {
+    const saved = localStorage.getItem(`${key}_${userEmail}`);
+    return saved ? JSON.parse(saved) : defaultVal;
+  };
 
-  const [viewHistory, setViewHistory] = useState(() => {
-    const saved = localStorage.getItem('viewHistory');
-    return saved ? JSON.parse(saved) : ['AAPL'];
-  });
+  const [followedStocks, setFollowedStocks] = useState(() => getSavedData('followedStocks', ['AAPL', 'MSFT']));
 
-  const [priceAlerts, setPriceAlerts] = useState(() => {
-    const saved = localStorage.getItem('priceAlerts');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [searchHistory, setSearchHistory] = useState(() => getSavedData('searchHistory', []));
+  const [viewHistory, setViewHistory] = useState(() => getSavedData('viewHistory', ['AAPL']));
+  const [priceAlerts, setPriceAlerts] = useState(() => getSavedData('priceAlerts', []));
 
   useEffect(() => {
-    localStorage.setItem('followedStocks', JSON.stringify(followedStocks));
-  }, [followedStocks]);
+    setFollowedStocks(getSavedData('followedStocks', ['AAPL', 'MSFT']));
+    setSearchHistory(getSavedData('searchHistory', []));
+    setViewHistory(getSavedData('viewHistory', ['AAPL']));
+    setPriceAlerts(getSavedData('priceAlerts', []));
+  }, [userEmail]);
 
   useEffect(() => {
-    localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
-  }, [searchHistory]);
+    localStorage.setItem(`followedStocks_${userEmail}`, JSON.stringify(followedStocks));
+  }, [followedStocks, userEmail]);
 
   useEffect(() => {
-    localStorage.setItem('viewHistory', JSON.stringify(viewHistory));
-  }, [viewHistory]);
+    localStorage.setItem(`searchHistory_${userEmail}`, JSON.stringify(searchHistory));
+  }, [searchHistory, userEmail]);
 
   useEffect(() => {
-    localStorage.setItem('priceAlerts', JSON.stringify(priceAlerts));
-  }, [priceAlerts]);
+    localStorage.setItem(`viewHistory_${userEmail}`, JSON.stringify(viewHistory));
+  }, [viewHistory, userEmail]);
+
+  useEffect(() => {
+    localStorage.setItem(`priceAlerts_${userEmail}`, JSON.stringify(priceAlerts));
+  }, [priceAlerts, userEmail]);
 
   const toggleFollowStock = (ticker) => {
     if (!ticker) return;
