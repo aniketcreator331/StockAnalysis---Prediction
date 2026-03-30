@@ -1,121 +1,130 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import axios from 'axios';
 
-const UserDataContext = createContext();
+const UserDataContext = createContext(null);
 
-export const useUserData = () => useContext(UserDataContext);
+const API_BASE = (() => {
+  let base = import.meta.env.VITE_API_BASE_URL || 'https://stockanalysis-prediction.onrender.com/api';
+  if (!base.endsWith('/api')) base += '/api';
+  return base;
+})();
 
 export const UserDataProvider = ({ children }) => {
   const { userEmail } = useAuth();
 
-  const getSavedData = (key, defaultVal) => {
-    const saved = localStorage.getItem(`${key}_${userEmail}`);
-    return saved ? JSON.parse(saved) : defaultVal;
-  };
+  const [followedStocks, setFollowedStocks] = useState([]);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [viewHistory, setViewHistory] = useState([]);
+  const [demoBalance, setDemoBalance] = useState(100000);
+  const [demoPortfolio, setDemoPortfolio] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
-  const [followedStocks, setFollowedStocks] = useState(() => getSavedData('followedStocks', ['AAPL', 'MSFT']));
-
-  const [searchHistory, setSearchHistory] = useState(() => getSavedData('searchHistory', []));
-  const [viewHistory, setViewHistory] = useState(() => getSavedData('viewHistory', ['AAPL']));
-  const [priceAlerts, setPriceAlerts] = useState(() => getSavedData('priceAlerts', []));
-
+  // ── Load from MongoDB when user logs in ──
   useEffect(() => {
-    setFollowedStocks(getSavedData('followedStocks', ['AAPL', 'MSFT']));
-    setSearchHistory(getSavedData('searchHistory', []));
-    setViewHistory(getSavedData('viewHistory', ['AAPL']));
-    setPriceAlerts(getSavedData('priceAlerts', []));
+    if (!userEmail) {
+      setFollowedStocks([]);
+      setSearchHistory([]);
+      setViewHistory([]);
+      setDemoBalance(100000);
+      setDemoPortfolio([]);
+      setLoaded(false);
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/userdata/${encodeURIComponent(userEmail)}`);
+        const d = res.data;
+        setFollowedStocks(d.followedStocks || []);
+        setSearchHistory(d.searchHistory || []);
+        setViewHistory(d.viewHistory || []);
+        setDemoBalance(d.demoBalance ?? 100000);
+        setDemoPortfolio(d.demoPortfolio || []);
+      } catch {
+        // Fallback to localStorage if API unreachable
+        const ls = (key) => {
+          try { return JSON.parse(localStorage.getItem(`${key}_${userEmail}`)); } catch { return null; }
+        };
+        setFollowedStocks(ls('followedStocks') || []);
+        setSearchHistory(ls('searchHistory') || []);
+        setViewHistory(ls('viewHistory') || []);
+        setDemoBalance(ls('demoBalance') ?? 100000);
+        setDemoPortfolio(ls('demoPortfolio') || []);
+      } finally {
+        setLoaded(true);
+      }
+    };
+
+    load();
   }, [userEmail]);
 
-  useEffect(() => {
-    localStorage.setItem(`followedStocks_${userEmail}`, JSON.stringify(followedStocks));
-  }, [followedStocks, userEmail]);
+  // ── Save to MongoDB whenever data changes ──
+  const saveToCloud = useCallback(
+    async (patch) => {
+      if (!userEmail) return;
+      const payload = {
+        email: userEmail,
+        followedStocks,
+        searchHistory,
+        viewHistory,
+        demoBalance,
+        demoPortfolio,
+        ...patch,
+      };
+      try {
+        await axios.post(`${API_BASE}/userdata`, payload);
+      } catch {
+        // Silently fail — data is already in state
+      }
+    },
+    [userEmail, followedStocks, searchHistory, viewHistory, demoBalance, demoPortfolio]
+  );
 
-  useEffect(() => {
-    localStorage.setItem(`searchHistory_${userEmail}`, JSON.stringify(searchHistory));
-  }, [searchHistory, userEmail]);
-
-  useEffect(() => {
-    localStorage.setItem(`viewHistory_${userEmail}`, JSON.stringify(viewHistory));
-  }, [viewHistory, userEmail]);
-
-  useEffect(() => {
-    localStorage.setItem(`priceAlerts_${userEmail}`, JSON.stringify(priceAlerts));
-  }, [priceAlerts, userEmail]);
-
-  const toggleFollowStock = (ticker) => {
-    if (!ticker) return;
-    setFollowedStocks((prev) => 
-      prev.includes(ticker) 
-        ? prev.filter((t) => t !== ticker) 
-        : [...prev, ticker]
-    );
-  };
-
-  const isFollowing = (ticker) => {
-    return followedStocks.includes(ticker);
+  // ── Public helpers ──
+  const toggleFollow = (ticker) => {
+    const next = followedStocks.includes(ticker)
+      ? followedStocks.filter((s) => s !== ticker)
+      : [...followedStocks, ticker];
+    setFollowedStocks(next);
+    saveToCloud({ followedStocks: next });
   };
 
   const addSearchHistory = (ticker) => {
-    if (!ticker) return;
-    setSearchHistory((prev) => {
-      const filtered = prev.filter((t) => t !== ticker);
-      return [ticker, ...filtered].slice(0, 10); // Keep last 10
-    });
+    const next = [ticker, ...searchHistory.filter((s) => s !== ticker)].slice(0, 10);
+    setSearchHistory(next);
+    saveToCloud({ searchHistory: next });
   };
 
   const addViewHistory = (ticker) => {
-    if (!ticker) return;
-    setViewHistory((prev) => {
-      const filtered = prev.filter((t) => t !== ticker);
-      return [ticker, ...filtered].slice(0, 10); // Keep last 10
-    });
+    const next = [ticker, ...viewHistory.filter((s) => s !== ticker)].slice(0, 10);
+    setViewHistory(next);
+    saveToCloud({ viewHistory: next });
   };
 
-  const clearHistory = () => {
-    setSearchHistory([]);
-    setViewHistory([]);
-  };
-
-  const addPriceAlert = (ticker, targetPrice, condition) => {
-    if (!ticker || !targetPrice) return;
-    setPriceAlerts((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        ticker: ticker.toUpperCase(),
-        targetPrice: parseFloat(targetPrice),
-        condition, // 'above' or 'below'
-        isTriggered: false
-      }
-    ]);
-  };
-
-  const removePriceAlert = (id) => {
-    setPriceAlerts((prev) => prev.filter((alert) => alert.id !== id));
-  };
-
-  const markAlertAsTriggered = (id) => {
-    setPriceAlerts((prev) => prev.map((alert) => 
-      alert.id === id ? { ...alert, isTriggered: true } : alert
-    ));
+  const updateDemoBalance = (balance, portfolio) => {
+    setDemoBalance(balance);
+    setDemoPortfolio(portfolio);
+    saveToCloud({ demoBalance: balance, demoPortfolio: portfolio });
   };
 
   return (
     <UserDataContext.Provider value={{
       followedStocks,
-      toggleFollowStock,
-      isFollowing,
       searchHistory,
-      addSearchHistory,
       viewHistory,
+      demoBalance,
+      demoPortfolio,
+      loaded,
+      toggleFollow,
+      addSearchHistory,
       addViewHistory,
-      clearHistory,
-      priceAlerts,
-      addPriceAlert,
-      removePriceAlert,
-      markAlertAsTriggered
+      updateDemoBalance,
+      isFollowed: (ticker) => followedStocks.includes(ticker),
     }}>
       {children}
     </UserDataContext.Provider>
   );
 };
+
+export const useUserData = () => useContext(UserDataContext);

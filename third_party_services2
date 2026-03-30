@@ -1,0 +1,46 @@
+# Third-Party APIs and Cloud Services Integration
+
+The Stock Dashboard project relies heavily on several robust third-party platforms to fetch financial data, manage user storage, handle authentication, and host the web application. Here is a detailed breakdown of each service and its specific role in the project.
+
+## 1. Alpha Vantage (Financial Data API)
+*   **What it is:** A leading provider of free APIs for real-time and historical stock market data, foreign exchange, and cryptocurrency feeds.
+*   **Role in Project:** Alpha Vantage acts as the **primary data source** for the entire dashboard. 
+*   **How it Works:**
+    *   When a user searches for a stock (e.g., AAPL), the FastAPI backend (`data_fetcher.py`) sends an HTTP GET request to Alpha Vantage using a secure API Key.
+    *   Alpha Vantage responds with structured JSON data containing the Open, High, Low, Close, and Volume (OHLCV) metrics.
+    *   This data is then parsed to build the interactive charts on the frontend and feed data into the Machine Learning prediction model.
+    *(Note: The project also uses `yfinance` as an intelligent fallback layer just in case the Alpha Vantage rate limits are exceeded)*.
+
+## 2. Vercel (Frontend Hosting Cloud)
+*   **What it is:** A cloud platform specifically designed for frictionless deployment of static site frameworks like React, Next.js, and Vite.
+*   **Role in Project:** Vercel hosts the **UI (Frontend)** of the Stock Dashboard.
+*   **How it Works:** 
+    *   Vercel links directly to the project's source code repository.
+    *   Whenever new React/Vite code is merged, Vercel automatically builds the production bundle and deploys it to a fast, global Content Delivery Network (CDN).
+    *   It serves the visual application (`HomePage.jsx`, `AuthModal.jsx`, etc.) identically and quickly to any user across the globe.
+
+## 3. Render (Backend Hosting Cloud)
+*   **What it is:** A unified cloud provider capable of hosting full-fledged web services, static sites, containers, and databases.
+*   **Role in Project:** Render is responsible for hosting the **Python/FastAPI Backend**.
+*   **How it Works:**
+    *   The complex backend operations—such as calculating real-time growth, scraping stock data via Alpha Vantage/yfinance, and continuously running the machine learning `prediction_model.py`—require dedicated compute power.
+    *   Render keeps the FastAPI server running 24/7 in an isolated environment, exposing the `/api` endpoints so the Vercel-hosted frontend can communicate with it remotely.
+
+## 4. MongoDB (Database Service)
+*   **What it is:** A popular NoSQL, document-oriented database program that stores data in flexible, JSON-like documents.
+*   **Role in Project:** MongoDB manages **User Storage and Authentication data**.
+*   **How it Works:**
+    *   When a user Registers or Logs in via the `AuthModal` on the frontend, the credentials are sent to the backend.
+    *   Instead of storing this locally, the backend connects to MongoDB (typically a remote cluster like MongoDB Atlas).
+    *   It creates a "document" for the user holding their email and a securely hashed password. Because it is NoSQL, it is highly scalable, allowing effortless future additions like saving personal "Watchlists" or "Portfolio Preferences" directly into the user's document structure.
+    *(Note: While local development might utilize SQLite `users.db` for rapid offline testing, MongoDB provides the necessary scalability and security for the deployed production environment).*
+
+## 5. Google Cloud Console (OAuth 2.0)
+*   **What it is:** A developer platform provided by Google that enables secure, delegated access management and Single Sign-On (SSO) capabilities.
+*   **Role in Project:** Handles the secure **"Sign in with Google"** authentication flow.
+*   **How it Works:**
+    *   The project is registered within the Google Cloud Console, which issues a unique, secure **Client ID**.
+    *   When a user clicks "Sign in with Google" on the React frontend (`AuthModal.jsx`), the official Google Identity Services library intercepts the click and prompts the user to authenticate directly with Google's servers.
+    *   Upon successful authorization, Google returns a secure, cryptographically signed JSON Web Token (JWT) containing the user's verified email address and basic profile details back to the React app.
+    *   The frontend forwards this token to the FastAPI backend endpoint (`/api/auth/google`).
+    *   The backend decodes and validates the token. Once verified, it automatically registers or logs the user into the local database system (MongoDB/SQLite), granting them immediate access without requiring them to create or remember a manual password.

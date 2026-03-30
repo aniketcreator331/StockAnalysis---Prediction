@@ -9,3 +9,6 @@ python-multipart
 requests 
 python-dotenv
 google-auth
+pymongo[srv]
+dnspython
+
