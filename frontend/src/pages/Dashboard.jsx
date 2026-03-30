@@ -5,12 +5,15 @@ import CandlestickChart from '../charts/CandlestickChart';
 import { Banknote, TrendingUp, TrendingDown, Clock, Activity, Search, Bookmark, BookmarkCheck } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useUserData } from '../contexts/UserDataContext';
+import { useLocation } from 'react-router-dom';
 
 const Dashboard = () => {
   const { formatPrice } = useCurrency();
-  const { toggleFollowStock, isFollowing, addViewHistory, addSearchHistory } = useUserData();
-  const [ticker, setTicker] = useState('AAPL');
-  const [searchQuery, setSearchQuery] = useState('AAPL');
+  const { toggleFollow, isFollowed, addViewHistory, addSearchHistory } = useUserData();
+  const location = useLocation();
+  const initialTicker = location.state?.ticker || 'AAPL';
+  const [ticker, setTicker] = useState(initialTicker);
+  const [searchQuery, setSearchQuery] = useState(initialTicker);
   const [dashboardData, setDashboardData] = useState(null);
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,11 +70,11 @@ const Dashboard = () => {
               {dashboardData?.symbol || ticker} <span className="text-primary font-medium ml-2 mr-2">Overview</span>
             </h1>
             <button 
-              onClick={() => toggleFollowStock(dashboardData?.symbol || ticker)}
+              onClick={() => toggleFollow(dashboardData?.symbol || ticker)}
               className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors focus:outline-none"
               title="Follow/Unfollow Stock"
             >
-              {isFollowing(dashboardData?.symbol || ticker) ? (
+              {isFollowed(dashboardData?.symbol || ticker) ? (
                 <BookmarkCheck size={24} className="text-primary fill-primary/20" />
               ) : (
                 <Bookmark size={24} className="text-gray-400 hover:text-primary" />

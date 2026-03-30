@@ -1,5 +1,6 @@
 import React from 'react';
-import { BookOpen, Search } from 'lucide-react';
+import { BookOpen, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const TickersPage = () => {
   const stockKeys = [
@@ -132,6 +133,12 @@ const TickersPage = () => {
     { symbol: 'RBLX', name: 'Roblox Corp.' },
   ];
 
+  const navigate = useNavigate();
+
+  const openDashboard = (symbol) => {
+    navigate('/dashboard', { state: { ticker: symbol } });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
@@ -149,14 +156,19 @@ const TickersPage = () => {
       <div className="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {stockKeys.map((stock, idx) => (
-            <div key={idx} className="flex items-center p-4 border border-gray-200 dark:border-darkBorder rounded-xl hover:bg-gray-50 dark:hover:bg-darkBg/50 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold mr-4 shrink-0">
+            <div
+              key={idx}
+              onClick={() => openDashboard(stock.symbol)}
+              className="flex items-center p-4 border border-gray-200 dark:border-darkBorder rounded-xl hover:bg-primary/5 hover:border-primary/30 dark:hover:bg-primary/10 transition-all cursor-pointer group"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold mr-4 shrink-0 group-hover:bg-primary group-hover:text-white transition-all">
                 {stock.symbol.substring(0, 2)}
               </div>
-              <div>
+              <div className="flex-1">
                 <h3 className="font-bold text-gray-900 dark:text-white tracking-wider">{stock.symbol}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 truncate w-32 md:w-40">{stock.name}</p>
               </div>
+              <ExternalLink size={14} className="text-gray-300 group-hover:text-primary transition-colors ml-2 shrink-0" />
             </div>
           ))}
         </div>
