@@ -124,15 +124,21 @@ const PredictionPage = () => {
           </h2>
           <PredictionLineChart historicalData={historicalData} predictedData={predictions} />
           
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-gray-100 dark:border-darkBorder">
-            {predictions.slice(0, 4).map((p, i) => (
-              <div key={i} className="text-center p-4 rounded-xl bg-gray-50 dark:bg-darkBg border border-gray-100 dark:border-darkBorder">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1 mt-1">
-                  t + {(i + 1) * 5} min
-                </p>
-                <p className="text-lg font-bold text-emerald-500">{formatPrice(p)}</p>
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pt-6 border-t border-gray-100 dark:border-darkBorder">
+            {predictions.length === 0 ? (
+              <div className="col-span-full text-center py-8 text-gray-400 dark:text-gray-500">
+                No prediction data available. Try clicking "Retrain LSTM Model" above.
               </div>
-            ))}
+            ) : (
+              predictions.map((p, i) => (
+                <div key={i} className="text-center p-4 rounded-xl bg-gray-50 dark:bg-darkBg border border-gray-100 dark:border-darkBorder">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                    +{(i + 1) * 5} min
+                  </p>
+                  <p className="text-lg font-bold text-emerald-500">{formatPrice(p)}</p>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

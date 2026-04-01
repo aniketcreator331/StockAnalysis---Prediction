@@ -1,7 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, RefreshCw, Briefcase, Activity, X, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { ShoppingCart, RefreshCw, Briefcase, Activity, X, AlertTriangle, TrendingUp, TrendingDown, CheckCircle } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
+
+// ─── Success Toast ───────────────────────────────────────────────────────────
+const SuccessToast = ({ isOpen, onClose, type, ticker, quantity, total }) => {
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(onClose, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const isBuy = type === 'buy';
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[100] animate-fade-in-up">
+      <div className={`flex items-start gap-4 p-5 rounded-2xl shadow-2xl border max-w-sm ${
+        isBuy
+          ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-700'
+          : 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-700'
+      }`}>
+        <div className={`p-2 rounded-full shrink-0 ${
+          isBuy ? 'bg-emerald-100 dark:bg-emerald-800' : 'bg-red-100 dark:bg-red-800'
+        }`}>
+          <CheckCircle size={22} className={isBuy ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'} />
+        </div>
+        <div className="flex-1">
+          <p className={`font-extrabold text-base ${
+            isBuy ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'
+          }`}>
+            {isBuy ? '✅ Order Executed — Bought!' : '✅ Order Executed — Sold!'}
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+            <span className="font-bold">{quantity}</span> shares of{' '}
+            <span className="font-bold tracking-widest">{ticker}</span> for{' '}
+            <span className="font-bold">${total.toFixed(2)}</span>
+          </p>
+          <div className="mt-2 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+            <div className={`h-full rounded-full animate-shrink-bar ${
+              isBuy ? 'bg-emerald-500' : 'bg-red-500'
+            }`}></div>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0">
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // ─── Confirmation Modal ───────────────────────────────────────────────────────
 const ConfirmModal = ({ isOpen, onClose, onConfirm, type, ticker, quantity, price, total, balance }) => {
@@ -120,6 +170,8 @@ const DemoTradingPage = () => {
 
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null });
+  // Success toast state
+  const [successToast, setSuccessToast] = useState({ isOpen: false, type: null, ticker: '', quantity: 0, total: 0 });
 
   useEffect(() => {
     setBalance(getSavedData('demoBalance', 100000));
@@ -167,20 +219,27 @@ const DemoTradingPage = () => {
         }
         return [...prev, { ticker, quantity, avgPrice: currentPrice }];
       });
+      closeConfirm();
+      setSuccessToast({ isOpen: true, type: 'buy', ticker, quantity, total: cost });
+    } else {
+      closeConfirm();
     }
-    closeConfirm();
   };
 
   const executeSell = () => {
     const existing = portfolio.find(p => p.ticker === ticker);
     if (existing && existing.quantity >= quantity) {
-      setBalance(b => b + (currentPrice * quantity));
+      const proceeds = currentPrice * quantity;
+      setBalance(b => b + proceeds);
       setPortfolio(prev =>
         prev.map(p => p.ticker === ticker ? { ...p, quantity: p.quantity - quantity } : p)
             .filter(p => p.quantity > 0)
       );
+      closeConfirm();
+      setSuccessToast({ isOpen: true, type: 'sell', ticker, quantity, total: proceeds });
+    } else {
+      closeConfirm();
     }
-    closeConfirm();
   };
 
   const totalPortfolioValue = portfolio.reduce((acc, stock) => {
@@ -190,6 +249,16 @@ const DemoTradingPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Success Toast */}
+      <SuccessToast
+        isOpen={successToast.isOpen}
+        onClose={() => setSuccessToast(s => ({ ...s, isOpen: false }))}
+        type={successToast.type}
+        ticker={successToast.ticker}
+        quantity={successToast.quantity}
+        total={successToast.total}
+      />
+
       {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}

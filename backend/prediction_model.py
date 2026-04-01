@@ -60,44 +60,75 @@ def train_model(ticker="AAPL", period="2y"):
 
 def predict_future(ticker, steps=6):
     df = data_fetcher.fetch_historical_data(ticker, period="60d", interval="1d")
-    if df is None or len(df) < 60:
+    
+    # Always get the last real price first as our seed
+    last_price = None
+    if df is not None and len(df) > 0:
+        last_price = float(df['Close'].iloc[-1])
+    
+    # Fallback: try short period if 60d failed
+    if df is None or len(df) < 10:
+        df_short = data_fetcher.fetch_historical_data(ticker, period="5d", interval="1d")
+        if df_short is not None and len(df_short) > 0:
+            last_price = float(df_short['Close'].iloc[-1])
+    
+    # If we still have no price, return empty
+    if last_price is None:
         return []
     
-    data = df['Close'].values.reshape(-1, 1)
-    scaler = MinMaxScaler(feature_range=(0,1))
-    scaled_data = scaler.fit_transform(data)
+    # Try LSTM model if available and we have enough data
+    if df is not None and len(df) >= 60 and os.path.exists(MODEL_PATH):
+        try:
+            model = load_model(MODEL_PATH)
+            data = df['Close'].values.reshape(-1, 1)
+            scaler = MinMaxScaler(feature_range=(0,1))
+            scaled_data = scaler.fit_transform(data)
+            
+            x_input = scaled_data[-60:].reshape(1, -1)
+            temp_input = list(x_input[0])
+            
+            lst_output = []
+            i = 0
+            while i < steps:
+                if len(temp_input) > 60:
+                    x_in = np.array(temp_input[1:]).reshape((1, 60, 1))
+                    yhat = model.predict(x_in, verbose=0)
+                    temp_input.append(yhat[0][0])
+                    temp_input = temp_input[1:]
+                else:
+                    x_in = np.array(temp_input).reshape((1, 60, 1))
+                    yhat = model.predict(x_in, verbose=0)
+                    temp_input.append(yhat[0][0])
+                lst_output.append(temp_input[-1])
+                i += 1
+            
+            predicted_prices = scaler.inverse_transform(np.array(lst_output).reshape(-1, 1))
+            return [float(p[0]) for p in predicted_prices]
+        except Exception as e:
+            print(f"LSTM prediction failed: {e}, falling back to statistical model")
     
-    if not os.path.exists(MODEL_PATH):
-        # mock prediction if model is not yet trained to prevent app crash
-        predictions = []
-        last_price = data[-1][0]
-        for i in range(steps):
-             predictions.append(last_price * (1 + np.random.normal(0, 0.005)))
-             last_price = predictions[-1]
-        return predictions
+    # Statistical fallback — always works even without TensorFlow
+    # Uses simple momentum + volatility model based on recent price history
+    predictions = []
+    price = last_price
+    
+    if df is not None and len(df) >= 5:
+        recent = df['Close'].values[-10:]
+        # Calculate recent daily returns
+        returns = np.diff(recent) / recent[:-1]
+        mean_return = float(np.mean(returns))
+        std_return = float(np.std(returns))
+        # Scale to per-step (roughly 5 min intervals)
+        step_mean = mean_return / 78  # ~78 5-min periods per trading day
+        step_std = std_return / 78
+    else:
+        step_mean = 0.0001
+        step_std = 0.002
 
-    model = load_model(MODEL_PATH)
+    np.random.seed(42)  # Deterministic so predictions don't flicker on refresh
+    for _ in range(steps):
+        change = np.random.normal(step_mean, step_std)
+        price = price * (1 + change)
+        predictions.append(round(float(price), 4))
     
-    x_input = scaled_data[-60:].reshape(1, -1)
-    temp_input = list(x_input[0])
-    
-    lst_output = []
-    i = 0
-    while(i < steps):
-        if(len(temp_input) > 60):
-            x_input = np.array(temp_input[1:])
-            x_input = x_input.reshape((1, 60, 1))
-            yhat = model.predict(x_input, verbose=0)
-            temp_input.append(yhat[0][0])
-            temp_input = temp_input[1:]
-            lst_output.append(yhat[0][0])
-            i = i + 1
-        else:
-            x_input = x_input.reshape((1, 60, 1))
-            yhat = model.predict(x_input, verbose=0)
-            temp_input.append(yhat[0][0])
-            lst_output.append(yhat[0][0])
-            i = i + 1
-    
-    predicted_prices = scaler.inverse_transform(np.array(lst_output).reshape(-1,1))
-    return [float(p[0]) for p in predicted_prices]
+    return predictions
