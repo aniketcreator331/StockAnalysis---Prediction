@@ -15,8 +15,8 @@ const PredictionPage = () => {
   const [trainingSuccess, setTrainingSuccess] = useState(false);
 
   // Phase 3 properties
-  const lastPrice = historicalData.length > 0 ? historicalData[historicalData.length - 1].y[3] : 0;
-  const finalPrediction = predictions.length > 0 ? predictions[predictions.length - 1] : 0;
+  const lastPrice = Array.isArray(historicalData) && historicalData.length > 0 ? (historicalData[historicalData.length - 1].Close || 0) : 0;
+  const finalPrediction = Array.isArray(predictions) && predictions.length > 0 ? predictions[predictions.length - 1] : 0;
   const diffPercent = lastPrice > 0 ? ((finalPrediction - lastPrice) / lastPrice) * 100 : 0;
 
   let signal = 'HOLD';
@@ -52,11 +52,11 @@ const PredictionPage = () => {
     setLoading(true);
     try {
       const dbData = await stockApi.getChartData(ticker, '1d', '5m');
-      if (dbData && dbData.length > 0) {
+      if (Array.isArray(dbData) && dbData.length > 0) {
         setHistoricalData(dbData);
       } else {
         const dbDataRes = await stockApi.getChartData(ticker, '5d', '15m');
-        setHistoricalData(dbDataRes || []);
+        setHistoricalData(Array.isArray(dbDataRes) ? dbDataRes : []);
       }
       
       const predRes = await stockApi.getPredictionData(ticker);

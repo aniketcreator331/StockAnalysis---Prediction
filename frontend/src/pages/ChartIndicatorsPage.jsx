@@ -3,6 +3,7 @@ import Chart from 'react-apexcharts';
 import { stockApi } from '../services/api';
 import { Activity, Settings2, BarChart3, Clock, ZoomIn, ZoomOut, Search } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 function calculateSMA(data, period) {
   const sma = [];
@@ -120,6 +121,7 @@ function calculateMACD(data, shortPeriod = 12, longPeriod = 26, signalPeriod = 9
 }
 
 const ChartIndicatorsPage = () => {
+  const { getConvertedValue, currencySymbol } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const defaultTicker = searchParams.get('ticker')?.toUpperCase() || 'AAPL';
   
@@ -148,7 +150,12 @@ const ChartIndicatorsPage = () => {
         if (rawData && rawData.length > 0) {
           const formattedData = rawData.map(d => ({
             x: new Date(d.Date).getTime(),
-            y: [d.Open, d.High, d.Low, d.Close],
+            y: [
+              getConvertedValue(d.Open),
+              getConvertedValue(d.High),
+              getConvertedValue(d.Low),
+              getConvertedValue(d.Close)
+            ],
             volume: d.Volume
           }));
           setData(formattedData);
@@ -202,7 +209,7 @@ const ChartIndicatorsPage = () => {
     mainChartOptions = {
       chart: { type: 'candlestick', height: 400, background: 'transparent', toolbar: { show: true }, animations: { enabled: false } },
       xaxis: { type: 'datetime', labels: { style: { colors: '#6b7280' } } },
-      yaxis: { tooltip: { enabled: true }, labels: { style: { colors: '#6b7280' }, formatter: (v) => `$${v.toFixed(2)}` } },
+      yaxis: { tooltip: { enabled: true }, labels: { style: { colors: '#6b7280' }, formatter: (v) => v !== undefined && v !== null ? `${currencySymbol}${Number(v).toFixed(2)}` : '' } },
       grid: { borderColor: '#374151', strokeDashArray: 3 },
       stroke: { width: [1, 2, 2, 2], colors: ['#ffffff', '#3b82f6', '#8b5cf6', '#ef4444'] },
       theme: { mode: document.documentElement.classList.contains('dark') ? 'dark' : 'light' },
@@ -225,7 +232,19 @@ const ChartIndicatorsPage = () => {
     }
 
     if (indicators.volume) {
-      volSeries = [{ name: 'Volume', type: 'bar', data: data.map(d => ({ x: d.x, y: (d.volume || Math.random() * 1000000) })) }];
+      volSeries = [{ 
+        name: 'Volume', 
+        type: 'bar', 
+        data: data.map(d => {
+          const isUp = d.y[3] >= d.y[0]; // Close >= Open
+          return { 
+            x: d.x, 
+            y: d.volume,
+            fillColor: isUp ? '#10b981' : '#ef4444',
+            strokeColor: isUp ? '#10b981' : '#ef4444'
+          };
+        })
+      }];
     }
   }
   } catch (err) {
@@ -346,22 +365,21 @@ const ChartIndicatorsPage = () => {
          </div>
 
          {/* Chart Area */}
-         <div className="xl:col-span-9 bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-2 flex flex-col relative overflow-hidden">
             {loading && (
-              <div className="absolute inset-0 bg-white/50 dark:bg-darkCard/50 backdrop-blur-sm z-10 flex items-center justify-center">
-                 <div className="animate-spin rounded-full border-2 border-indigo-500 border-t-transparent w-10 h-10"></div>
+              <div className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-20 flex items-center justify-center">
+                  <div className="animate-spin rounded-full border-2 border-indigo-500 border-t-transparent w-10 h-10"></div>
               </div>
             )}
             
             {renderCrashError && (
-              <div className="flex flex-col items-center justify-center p-6 text-rose-500 bg-rose-50 dark:bg-rose-900/20 rounded-xl">
+              <div className="bg-white dark:bg-darkCard rounded-2xl border border-rose-100 dark:border-rose-900/50 shadow-sm p-10 flex flex-col items-center justify-center text-rose-500 bg-rose-50 dark:bg-rose-900/20">
                  <p className="font-bold">Error rendering chart calculation:</p>
                  <p className="text-sm">{renderCrashError}</p>
               </div>
             )}
             
             {!loading && renderCrashError === null && (!data || data.length === 0) && (
-              <div className="flex flex-col items-center justify-center h-[400px] text-gray-500">
+              <div className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-20 flex flex-col items-center justify-center text-gray-500">
                 <BarChart3 size={48} className="text-gray-300 dark:text-gray-700 mb-4" />
                 <p className="font-bold">No chart data available for {ticker}.</p>
                 <p className="text-sm">Try searching a different symbol or timeframe.</p>
@@ -369,34 +387,56 @@ const ChartIndicatorsPage = () => {
             )}
             
             {!loading && renderCrashError === null && data && data.length > 0 && (
-              <div className="w-full text-black dark:text-white">
-                {/* Main Candlestick + MA */}
-                <div className="h-[400px]">
+              <div className="w-full space-y-6">
+                {/* Main Candlestick Box */}
+                <div className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-4 h-[450px]">
                   <Chart options={mainChartOptions} series={series} type="candlestick" height={400} />
                 </div>
 
-                {/* SubCharts */}
-                {indicators.rsi && (
-                  <div className="h-[150px] border-t border-gray-200 dark:border-gray-800 relative">
-                     <span className="absolute top-2 left-4 text-xs font-black text-gray-400 z-10">RSI</span>
-                     <Chart options={{...commonSubChartOptions, colors: ['#a855f7'], yaxis: { min: 0, max: 100, tickAmount: 2, labels: { style: { colors: '#6b7280' } } }, annotations: { yaxis: [{ y: 70, borderColor: '#ef4444', strokeDashArray: 2, label: { text: 'Overbought' } }, { y: 30, borderColor: '#10b981', strokeDashArray: 2, label: { text: 'Oversold' } }] } }} series={rsiSeries} type="line" height={150} />
-                  </div>
-                )}
+                {/* SubCharts Grid / Stack */}
+                <div className="grid grid-cols-1 gap-6">
+                    {indicators.rsi && (
+                    <div className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-4 h-[200px] relative">
+                        <span className="absolute top-4 left-6 text-xs font-black text-gray-400 z-10">RSI INDICATOR</span>
+                        <Chart options={{...commonSubChartOptions, colors: ['#a855f7'], yaxis: { min: 0, max: 100, tickAmount: 2, labels: { style: { colors: '#6b7280' } } }, annotations: { yaxis: [{ y: 70, borderColor: '#ef4444', strokeDashArray: 2, label: { text: 'Overbought' } }, { y: 30, borderColor: '#10b981', strokeDashArray: 2, label: { text: 'Oversold' } }] } }} series={rsiSeries} type="line" height={150} />
+                    </div>
+                    )}
 
-                {indicators.macd && (
-                  <div className="h-[150px] border-t border-gray-200 dark:border-gray-800 relative">
-                     <span className="absolute top-2 left-4 text-xs font-black text-gray-400 z-10">MACD</span>
-                     <Chart options={{...commonSubChartOptions, stroke: { width: [2, 2, 0] }, colors: ['#3b82f6', '#f59e0b', function({ value }) { return value < 0 ? '#ef4444' : '#10b981' }], plotOptions: { bar: { columnWidth: '80%' } } }} series={macdSeries} type="line" height={150} />
-                  </div>
-                )}
+                    {indicators.macd && (
+                    <div className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-4 h-[200px] relative">
+                        <span className="absolute top-4 left-6 text-xs font-black text-gray-400 z-10">MACD TREND</span>
+                        <Chart options={{...commonSubChartOptions, stroke: { width: [2, 2, 0] }, colors: ['#3b82f6', '#f59e0b', '#10b981'], plotOptions: { bar: { columnWidth: '80%' } } }} series={macdSeries} type="line" height={150} />
+                    </div>
+                    )}
 
-                {indicators.volume && (
-                  <div className="h-[150px] border-t border-gray-200 dark:border-gray-800 relative">
-                     <span className="absolute top-2 left-4 text-xs font-black text-gray-400 z-10">VOLUME</span>
-                     <Chart options={{...commonSubChartOptions, colors: ['#6b7280'], plotOptions: { bar: { columnWidth: '80%' } }, yaxis: { labels: { formatter: (val) => (val/1000000).toFixed(1)+'M', style: { colors: '#6b7280' } } } }} series={volSeries} type="bar" height={150} />
-                  </div>
+                    {indicators.volume && (
+                    <div className="bg-white dark:bg-darkCard rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm p-4 h-[200px] relative">
+                        <span className="absolute top-4 left-6 text-xs font-black text-gray-400 z-10">MARKET VOLUME</span>
+                        <Chart 
+                        options={{
+                            ...commonSubChartOptions, 
+                            colors: ['#6b7280'], 
+                            plotOptions: { bar: { columnWidth: '80%', distributed: true } },
+                            legend: { show: false },
+                            yaxis: { 
+                            labels: { 
+                                formatter: (val) => {
+                                if (val >= 1000000000) return (val/1000000000).toFixed(1)+'B';
+                                if (val >= 1000000) return (val/1000000).toFixed(1)+'M';
+                                if (val >= 1000) return (val/1000).toFixed(1)+'K';
+                                return val;
+                                }, 
+                                style: { colors: '#6b7280' } 
+                            } 
+                            } 
+                        }} 
+                        series={volSeries} 
+                        type="bar" 
+                        height={150} 
+                        />
+                    </div>
                 )}
-              </div>
+              </>
             )}
          </div>
       </div>
