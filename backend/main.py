@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from stock_api import router as stock_router
 from auth_api import router as auth_router
 from user_api import router as user_router
+from scarlet_api import router as scarlet_router
 
 app = FastAPI(title="Stock Market Analysis Dashboard API")
 
@@ -17,6 +18,7 @@ app.add_middleware(
 app.include_router(stock_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
+app.include_router(scarlet_router, prefix="/api")
 
 @app.get("/")
 def read_root():

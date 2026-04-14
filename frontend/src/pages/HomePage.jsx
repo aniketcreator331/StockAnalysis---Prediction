@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Activity, BarChart2, Layers, ShoppingCart, ArrowRight, TrendingUp,
   Brain, Shield, Zap, Globe, Database, Star, CheckCircle, Calculator,
-  LineChart, RefreshCw, Bell, Users, Lock
+  LineChart, RefreshCw, Bell, Users, Lock, PieChart, Briefcase
 } from 'lucide-react';
 
 const HomePage = () => {
@@ -33,39 +33,39 @@ const HomePage = () => {
       border: 'hover:border-blue-500/50 hover:shadow-blue-500/20'
     },
     {
+      title: 'Market Explorer',
+      description: 'Instantly analyze Stocks, Crypto, Forex, and Commodities using our multi-marketplace data engine.',
+      icon: <Globe size={32} className="text-orange-500 mb-4" />,
+      link: '/market-explorer',
+      border: 'hover:border-orange-500/50 hover:shadow-orange-500/20'
+    },
+    {
+      title: 'Technical Charts',
+      description: 'Deep dive into advanced technicals with dynamic MA overlays, MACD histograms, RSI oscillators, and more.',
+      icon: <LineChart size={32} className="text-cyan-500 mb-4" />,
+      link: '/charts',
+      border: 'hover:border-cyan-500/50 hover:shadow-cyan-500/20'
+    },
+    {
       title: 'AI Price Predictions',
       description: 'Leverage our LSTM neural-network model to map historic patterns into forward-looking price forecasts over a 30-minute horizon.',
-      icon: <BarChart2 size={32} className="text-purple-500 mb-4" />,
+      icon: <Brain size={32} className="text-purple-500 mb-4" />,
       link: '/predictions',
       border: 'hover:border-purple-500/50 hover:shadow-purple-500/20'
     },
     {
-      title: 'Market Overview',
-      description: 'Instantly analyze 100+ top equities scored by daily growth, volatility, and a smart Buy / Hold / Sell recommendation engine.',
-      icon: <Layers size={32} className="text-orange-500 mb-4" />,
-      link: '/comparison',
-      border: 'hover:border-orange-500/50 hover:shadow-orange-500/20'
-    },
-    {
-      title: 'Paper Trading Simulator',
-      description: 'Test strategies risk-free with a $100,000 virtual balance. Place orders with a professional confirmation flow and track your P&L.',
+      title: 'Trading Terminal',
+      description: 'Test strategies risk-free with a $100k balance. Use Limit/Stop orders, multi-style trading, and automated rules.',
       icon: <ShoppingCart size={32} className="text-emerald-500 mb-4" />,
       link: '/demotrading',
       border: 'hover:border-emerald-500/50 hover:shadow-emerald-500/20'
     },
     {
-      title: 'Financial Calculators',
-      description: 'Compute SIP returns, SWP drawdowns, brokerage charges, and required margin — all in one dedicated, real-time calculator hub.',
-      icon: <Calculator size={32} className="text-pink-500 mb-4" />,
-      link: '/calculators',
+      title: 'Portfolio & Margin',
+      description: 'View dynamic Asset Allocation pies, simulated net-worth growth over 30 days, and utilize 2x margin account leverage.',
+      icon: <PieChart size={32} className="text-pink-500 mb-4" />,
+      link: '/portfolio',
       border: 'hover:border-pink-500/50 hover:shadow-pink-500/20'
-    },
-    {
-      title: 'Compare Stocks',
-      description: 'Place two stocks side-by-side and compare price history, growth trends, and volatility on a single synchronized chart view.',
-      icon: <LineChart size={32} className="text-cyan-500 mb-4" />,
-      link: '/comparetwo',
-      border: 'hover:border-cyan-500/50 hover:shadow-cyan-500/20'
     },
   ];
 
@@ -173,72 +173,89 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── AI Model Deep-Dive ── */}
+      {/* ── The Platform Engine (Bento Grid) ── */}
       <section className="animate-on-scroll opacity-0 translate-y-8 transition-all duration-700">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-bold text-sm mb-4 border border-purple-200 dark:border-purple-700/50">
-            <Brain size={16} /> How The AI Model Works
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-bold text-sm mb-4 border border-primary/20">
+            <Zap size={16} /> Powering the Platform
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Built on Deep Learning</h2>
-          <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">Our prediction engine is not a simple moving average. It's a trained neural network that understands time-series patterns in stock data.</p>
+          <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4 tracking-tight">The StockIQ Engine</h2>
+          <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto text-lg pt-1">Deep learning, rapid data synchronization, and premium isolation wrapped in a single dashboard.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {modelDetails.map((m, i) => (
-            <div key={i} className="bg-white dark:bg-darkCard p-6 rounded-2xl border border-gray-100 dark:border-darkBorder shadow-sm hover:shadow-lg transition-all">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-xl bg-gray-50 dark:bg-darkBg">{m.icon}</div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{m.title}</h3>
-              </div>
-              <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm">{m.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Model Architecture Diagram */}
-        <div className="mt-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border border-purple-200 dark:border-purple-700/30 rounded-3xl p-8 text-center">
-          <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6">Model Architecture</h3>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {[
-              { label: 'Raw Price Data', sub: 'Yahoo Finance API', color: 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300' },
-              { label: '→', sub: '', color: 'bg-transparent border-transparent text-gray-400 text-2xl font-black' },
-              { label: 'MinMax Scaler', sub: 'Normalize [0,1]', color: 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300' },
-              { label: '→', sub: '', color: 'bg-transparent border-transparent text-gray-400 text-2xl font-black' },
-              { label: '60-Day Window', sub: 'Sliding Input', color: 'bg-orange-100 dark:bg-orange-900/40 border-orange-300 dark:border-orange-600 text-orange-700 dark:text-orange-300' },
-              { label: '→', sub: '', color: 'bg-transparent border-transparent text-gray-400 text-2xl font-black' },
-              { label: 'LSTM Layer ×2', sub: '50 Units Each', color: 'bg-purple-100 dark:bg-purple-900/40 border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300' },
-              { label: '→', sub: '', color: 'bg-transparent border-transparent text-gray-400 text-2xl font-black' },
-              { label: 'Dense Output', sub: 'Predicted Price', color: 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-300 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300' },
-            ].map((node, i) => (
-              node.sub === '' ? (
-                <span key={i} className="text-2xl font-black text-gray-400">{node.label}</span>
-              ) : (
-                <div key={i} className={`px-4 py-3 rounded-xl border font-semibold text-center ${node.color}`}>
-                  <div className="text-sm font-bold">{node.label}</div>
-                  <div className="text-xs opacity-70 mt-0.5">{node.sub}</div>
-                </div>
-              )
-            ))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {/* Big Model Box */}
+          <div className="md:col-span-2 bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl border border-white/10 group">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-white/10 transition-all duration-700"></div>
+             <Brain size={48} className="text-purple-300 mb-6" />
+             <h3 className="text-3xl font-black text-white mb-4">LSTM Neural Architecture</h3>
+             <p className="text-indigo-200 text-lg leading-relaxed max-w-lg mb-8">
+               Our core predictive engine utilizes a sliding 60-day window applied to a dual-layer Long Short-Term Memory (LSTM) network. Trained on 2 years of granular Yahoo Finance data, it anticipates price movement trajectories over the next 30 minutes with statistical confidence mapping.
+             </p>
+             <div className="flex flex-wrap items-center gap-3">
+                <span className="px-4 py-2 rounded-full bg-white/10 text-white text-xs font-black tracking-widest border border-white/10 backdrop-blur-md">TENSORFLOW CORE</span>
+                <span className="px-4 py-2 rounded-full bg-white/10 text-white text-xs font-black tracking-widest border border-white/10 backdrop-blur-md">MINMAX SCALED</span>
+             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ── Special Features ── */}
-      <section className="animate-on-scroll opacity-0 translate-y-8 transition-all duration-700">
-        <div className="bg-white dark:bg-darkCard border border-gray-100 dark:border-darkBorder rounded-3xl p-10 shadow-sm">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-bold text-sm mb-4 border border-emerald-200 dark:border-emerald-700/50">
-              <Zap size={16} /> Platform Highlights
-            </div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Special Features</h2>
+          {/* User Auth Box */}
+          <div className="bg-white dark:bg-darkCard rounded-[2.5rem] p-10 border border-gray-100 dark:border-darkBorder shadow-xl relative overflow-hidden group">
+             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 group-hover:h-full transition-all duration-500 opacity-10 dark:opacity-20 z-0"></div>
+             <div className="relative z-10">
+               <Shield size={40} className="text-emerald-500 mb-6" />
+               <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-4">Enterprise Security</h3>
+               <p className="text-gray-500 dark:text-gray-400 leading-relaxed mb-6">
+                 Secured natively through Google OAuth 2.0 with completely scoped portfolio isolation stored inside MongoDB Atlas.
+               </p>
+               <ul className="space-y-3">
+                 <li className="flex gap-2 items-center text-sm font-bold text-gray-700 dark:text-gray-300"><CheckCircle size={16} className="text-emerald-500" /> One-Click Login</li>
+                 <li className="flex gap-2 items-center text-sm font-bold text-gray-700 dark:text-gray-300"><CheckCircle size={16} className="text-emerald-500" /> Isolated DB Contexts</li>
+               </ul>
+             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {specialFeatures.map((f, i) => (
-              <div key={i} className="flex items-start gap-3 p-4 rounded-2xl bg-gray-50 dark:bg-darkBg border border-gray-100 dark:border-darkBorder">
-                <div className="mt-0.5 shrink-0 p-1.5 rounded-lg bg-white dark:bg-darkCard shadow-sm">{f.icon}</div>
-                <p className="text-gray-700 dark:text-gray-300 font-medium text-sm leading-relaxed">{f.text}</p>
-              </div>
-            ))}
+
+          {/* MultiMarket Box */}
+          <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-[2.5rem] p-10 shadow-xl relative overflow-hidden group transform hover:scale-[1.02] transition-transform">
+             <Globe size={40} className="text-white/80 mb-6" />
+             <h3 className="text-2xl font-black text-white mb-4">Multi-Market Feeds</h3>
+             <p className="text-white/80 leading-relaxed font-medium">
+               Real-time fetching and polling synchronizes the dashboard with Stocks, Crypto chains, global Forex pairings, and Spot Commodities.
+             </p>
+          </div>
+
+          {/* Micro-Features Box */}
+          <div className="md:col-span-2 bg-white dark:bg-darkCard rounded-[2.5rem] p-10 border border-gray-100 dark:border-darkBorder shadow-xl">
+             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-8">Premium Workflow Utilities</h3>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative z-10">
+               <div className="flex gap-4">
+                 <div className="mt-1 p-2 bg-gray-50 dark:bg-darkBg rounded-xl text-primary shrink-0 h-fit"><RefreshCw size={20} /></div>
+                 <div>
+                   <h4 className="font-bold text-gray-900 dark:text-white mb-1">Live Polling</h4>
+                   <p className="text-sm text-gray-500">Auto-refresh metrics globally.</p>
+                 </div>
+               </div>
+               <div className="flex gap-4">
+                 <div className="mt-1 p-2 bg-gray-50 dark:bg-darkBg rounded-xl text-rose-500 shrink-0 h-fit"><Bell size={20} /></div>
+                 <div>
+                   <h4 className="font-bold text-gray-900 dark:text-white mb-1">Target Alerts</h4>
+                   <p className="text-sm text-gray-500">Define price logic breakpoints.</p>
+                 </div>
+               </div>
+               <div className="flex gap-4">
+                 <div className="mt-1 p-2 bg-gray-50 dark:bg-darkBg rounded-xl text-yellow-500 shrink-0 h-fit"><Star size={20} /></div>
+                 <div>
+                   <h4 className="font-bold text-gray-900 dark:text-white mb-1">Quick Watchlists</h4>
+                   <p className="text-sm text-gray-500">Pin assets into your responsive sidebar.</p>
+                 </div>
+               </div>
+               <div className="flex gap-4">
+                 <div className="mt-1 p-2 bg-gray-50 dark:bg-darkBg rounded-xl text-emerald-500 shrink-0 h-fit"><ShoppingCart size={20} /></div>
+                 <div>
+                   <h4 className="font-bold text-gray-900 dark:text-white mb-1">Terminal Emulation</h4>
+                   <p className="text-sm text-gray-500">Trade using validated limits.</p>
+                 </div>
+               </div>
+             </div>
           </div>
         </div>
       </section>

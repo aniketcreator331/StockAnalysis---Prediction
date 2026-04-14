@@ -9,11 +9,21 @@ import CompareTwoPage from './pages/CompareTwoPage';
 import TickersPage from './pages/TickersPage';
 import DemoTradingPage from './pages/DemoTradingPage';
 import CalculatorsPage from './pages/CalculatorsPage';
+import PortfolioPage from './pages/PortfolioPage';
+import IntradayFnOPage from './pages/IntradayFnOPage';
+import AboutPage from './pages/AboutPage';
+import MarketExplorerPage from './pages/MarketExplorerPage';
+import WatchlistPage from './pages/WatchlistPage';
+import PriceAlertsPage from './pages/PriceAlertsPage';
+import OrderBookPage from './pages/OrderBookPage';
+import ChartIndicatorsPage from './pages/ChartIndicatorsPage';
 import { Moon, Sun, DollarSign, HelpCircle, User, UserPlus, Settings } from 'lucide-react';
 import { useCurrency } from './contexts/CurrencyContext';
 import { useAuth } from './contexts/AuthContext';
 import HelpModal from './components/HelpModal';
 import SettingsModal from './components/SettingsModal';
+import AuthModal from './components/AuthModal';
+import ScarletAssistant from './components/ScarletAssistant';
 import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 import { authApi } from './services/api';
 
@@ -21,24 +31,11 @@ function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authDefaultLogin, setAuthDefaultLogin] = useState(true);
   const { currency, setCurrency } = useCurrency();
   const { user, setUser } = useAuth();
   
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const data = await authApi.googleLogin(tokenResponse.access_token);
-        console.log("Logged in successfully:", data);
-        setUser(data.user);
-      } catch (error) {
-        console.error("Login failed:", error);
-      }
-    },
-    onError: () => {
-      console.log('Login Failed');
-    }
-  });
-
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -54,35 +51,12 @@ function App() {
         
         <div className="flex-1 flex flex-col overflow-hidden">
           <header className="flex justify-end items-center p-4 bg-white/50 dark:bg-darkCard/50 backdrop-blur-sm border-b border-gray-200 dark:border-darkBorder gap-4">
-            <div className="flex items-center bg-gray-100 dark:bg-darkBorder rounded-xl overflow-hidden px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/50 transition-all">
-              <span className="text-gray-500 mr-2 text-sm font-semibold">
-                CURRENCY:
-              </span>
-              <select 
-                value={currency} 
-                onChange={(e) => setCurrency(e.target.value)}
-                className="bg-transparent border-none text-sm font-bold text-gray-800 dark:text-gray-200 cursor-pointer focus:outline-none appearance-none"
-              >
-                <option value="USD">USD ($)</option>
-                <option value="INR">INR (₹)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="GBP">GBP (£)</option>
-                <option value="JPY">JPY (¥)</option>
-              </select>
-            </div>
             <button 
               onClick={() => setIsHelpOpen(true)}
               className="p-2 mr-2 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors flex items-center justify-center text-gray-600 dark:text-gray-300"
               title="Help & Guides"
             >
               <HelpCircle size={20} />
-            </button>
-            <button 
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 mr-2 rounded-full cursor-pointer hover:bg-gray-200 dark:hover:bg-darkBorder transition-colors flex items-center justify-center"
-              title="Toggle Dark Mode"
-            >
-              {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
             </button>
             <button 
               onClick={() => setIsSettingsOpen(true)}
@@ -102,14 +76,14 @@ function App() {
               ) : (
                 <>
                   <button 
-                    onClick={() => handleGoogleLogin()}
+                    onClick={() => { setAuthDefaultLogin(true); setIsAuthOpen(true); }}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-darkCard hover:bg-gray-50 dark:hover:bg-darkBorder border border-gray-200 dark:border-darkBorder rounded-xl transition-all shadow-sm"
                   >
                     <User size={16} />
                     Sign In
                   </button>
                   <button 
-                    onClick={() => handleGoogleLogin()}
+                    onClick={() => { setAuthDefaultLogin(false); setIsAuthOpen(true); }}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl transition-all shadow-sm shadow-primary/30"
                   >
                     <UserPlus size={16} />
@@ -131,14 +105,22 @@ function App() {
                 <Route path="/tickers" element={<TickersPage />} />
                 <Route path="/demotrading" element={<DemoTradingPage />} />
                 <Route path="/calculators" element={<CalculatorsPage />} />
+                <Route path="/portfolio" element={<PortfolioPage />} />
+                <Route path="/intraday-fno" element={<IntradayFnOPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/market-explorer" element={<MarketExplorerPage />} />
+                <Route path="/watchlist" element={<WatchlistPage />} />
+                <Route path="/alerts" element={<PriceAlertsPage />} />
+                <Route path="/order-book" element={<OrderBookPage />} />
+                <Route path="/charts" element={<ChartIndicatorsPage />} />
               </Routes>
             </div>
             
             {/* Footer with Founders Details */}
             <footer className="mt-8 pt-6 pb-2 border-t border-gray-200 dark:border-darkBorder flex flex-col md:flex-row items-center justify-between text-sm text-gray-500 dark:text-gray-400">
               <div className="flex flex-col items-start gap-1">
-                <p>Designed & Developed by <span className="font-medium text-gray-700 dark:text-gray-300">Aniket, Arun, Prasoon, Himanshu</span></p>
-                <p className="text-xs">Providing AI-Driven Insights for the Modern Stock Market Investor.</p>
+                <p>Designed & Developed by <span className="font-semibold text-primary">Micro Tech</span></p>
+                <p className="text-xs">Aniket · Arun · Prasoon · Himanshu — AI-Driven Stock Intelligence.</p>
               </div>
               <div className="flex flex-col md:flex-row items-center gap-4 mt-4 md:mt-0">
                 <a href="mailto:stockgpt331@gmail.com" className="flex items-center hover:text-primary transition-colors duration-200">
@@ -159,7 +141,16 @@ function App() {
         </div>
       </div>
       
+      {/* Scarlet AI Assistant */}
+      <ScarletAssistant />
+
       {/* Global Modals */}
+      <AuthModal 
+        isOpen={isAuthOpen} 
+        onClose={() => setIsAuthOpen(false)} 
+        defaultIsLogin={authDefaultLogin}
+        setUser={setUser}
+      />
       <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <SettingsModal 
         isOpen={isSettingsOpen} 

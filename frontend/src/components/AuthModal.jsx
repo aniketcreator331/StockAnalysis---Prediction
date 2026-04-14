@@ -1,117 +1,153 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, UserPlus, LogIn } from 'lucide-react';
+import { X, Mail, Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { authApi } from '../services/api';
-import { GoogleLogin } from '@react-oauth/google';
 
-const AuthModal = ({ isOpen, onClose, initialMode = 'login', onLoginSuccess }) => {
-  const [mode, setMode] = useState(initialMode); // 'login' or 'register'
+const AuthModal = ({ isOpen, onClose, defaultIsLogin = true, setUser }) => {
+  const [isLogin, setIsLogin] = useState(defaultIsLogin);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (!isOpen) return null;
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        setLoading(true);
+        setError('');
+        const data = await authApi.googleLogin(tokenResponse.access_token);
+        setUser(data.user);
+        onClose();
+      } catch (error) {
+        setError("Google login failed. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: () => {
+      setError('Google Login Failed');
+    }
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    if (!email || !password || (!isLogin && !name)) {
+      setError("Please fill out all fields");
+      return;
+    }
+
     setLoading(true);
+    setError('');
 
     try {
-      let data;
-      if (mode === 'login') {
-        data = await authApi.login(email, password);
+      if (isLogin) {
+        const data = await authApi.login(email, password);
+        setUser(data.user);
+        onClose();
       } else {
-        data = await authApi.register(email, password);
+        const data = await authApi.register(email, password, name);
+        setUser(data.user);
+        onClose();
       }
-      
-      console.log(`${mode} successful:`, data);
-      if (onLoginSuccess) {
-        onLoginSuccess(data.user);
-      }
-      onClose();
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError("An error occurred. Please try again.");
-      }
+      setError(err.response?.data?.detail || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    try {
-      const data = await authApi.googleLogin(credentialResponse.credential);
-      console.log("Google login successful:", data);
-      if (onLoginSuccess) {
-        onLoginSuccess(data.user);
-      }
-      onClose();
-    } catch (error) {
-      console.error("Google login failed:", error);
-      setError("Google authentication failed.");
-    }
-  };
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div 
-        className="bg-white dark:bg-darkCard w-full max-w-md rounded-2xl shadow-xl border border-gray-200 dark:border-darkBorder overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-darkBorder">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100">
-            {mode === 'login' ? <><LogIn size={20} /> Sign In</> : <><UserPlus size={20} /> Create Account</>}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in-up">
+      <div className="bg-white dark:bg-darkCard rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col pointer-events-auto">
+        <div className="flex justify-between items-center p-6 pb-2">
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white">
+            {isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
-          <button 
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors text-gray-500"
-          >
-            <X size={20} />
+          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-darkBorder rounded-full text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <X size={18} />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 pt-2">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            {isLogin ? 'Sign in to access your portfolio and saved watchlists.' : 'Join StockIQ for advanced AI market predictions.'}
+          </p>
+
+          <button 
+            type="button"
+            onClick={() => handleGoogleLogin()}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white dark:bg-darkBg border border-gray-200 dark:border-darkBorder text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-darkBorder/70 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+            </svg>
+            Continue with Google
+          </button>
+
+          <div className="flex items-center my-6">
+            <div className="flex-1 border-t border-gray-200 dark:border-darkBorder"></div>
+            <span className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Or continue with email</span>
+            <div className="flex-1 border-t border-gray-200 dark:border-darkBorder"></div>
+          </div>
+
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-sm">
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-2 border border-rose-200 dark:border-rose-900/50">
+              <AlertCircle size={14} />
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail size={16} className="text-gray-400" />
+            {!isLogin && (
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Full Name</label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white"
+                    placeholder="John Doe"
+                  />
                 </div>
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Email Address</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-darkBorder rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white dark:bg-darkBg text-gray-900 dark:text-gray-100 placeholder-gray-400 transition-colors"
-                  placeholder="you@email.com"
-                  required
+                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white"
+                  placeholder="you@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Password</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={16} className="text-gray-400" />
-                </div>
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="password"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-darkBorder rounded-xl focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white dark:bg-darkBg text-gray-900 dark:text-gray-100 placeholder-gray-400 transition-colors"
+                  className="w-full pl-9 pr-4 py-2.5 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white"
                   placeholder="••••••••"
-                  required
-                  minLength={6}
                 />
               </div>
             </div>
@@ -119,35 +155,29 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login', onLoginSuccess }) =
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 mt-2"
+              className="w-full mt-2 py-3 bg-primary hover:bg-blue-600 text-white rounded-xl font-bold shadow-md shadow-primary/30 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
             >
-              {loading ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Register')}
+              {loading ? (
+                <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full block"></span>
+              ) : (
+                <>
+                  {isLogin ? 'Sign In' : 'Create Account'}
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
 
-          <div className="mt-6 flex items-center justify-center space-x-4">
-            <span className="h-px w-full bg-gray-200 dark:bg-darkBorder"></span>
-            <span className="text-sm text-gray-500 font-medium">OR</span>
-            <span className="h-px w-full bg-gray-200 dark:bg-darkBorder"></span>
-          </div>
-
-          <div className="mt-6 flex justify-center">
-             <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setError('Google Login Failed')}
-              />
-          </div>
-
-          <p className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
-            <button
-              type="button"
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-              className="font-semibold text-primary hover:text-primary-dark transition-colors"
+          <div className="mt-6 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button 
+              type="button" 
+              onClick={() => { setIsLogin(!isLogin); setError(''); }}
+              className="text-primary hover:underline font-bold"
             >
-              {mode === 'login' ? "Sign Up" : "Sign In"}
+              {isLogin ? 'Sign up' : 'Sign in'}
             </button>
-          </p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,410 +1,396 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, RefreshCw, Briefcase, Activity, X, AlertTriangle, TrendingUp, TrendingDown, CheckCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { stockApi } from '../services/api';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { useAuth } from '../contexts/AuthContext';
+import CandlestickChart from '../charts/CandlestickChart';
+import { Activity, Wallet, TrendingUp, TrendingDown, DollarSign, Settings, Bell, Clock } from 'lucide-react';
 
-// ─── Success Toast ───────────────────────────────────────────────────────────
-const SuccessToast = ({ isOpen, onClose, type, ticker, quantity, total }) => {
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(onClose, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
+const STORAGE_KEY = 'demoTradingAccount';
+const STARTING_CASH = 10000;
+const MAX_HISTORY = 30;
 
-  if (!isOpen) return null;
-
-  const isBuy = type === 'buy';
-
-  return (
-    <div className="fixed bottom-6 right-6 z-[100] animate-fade-in-up">
-      <div className={`flex items-start gap-4 p-5 rounded-2xl shadow-2xl border max-w-sm ${
-        isBuy
-          ? 'bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-700'
-          : 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-700'
-      }`}>
-        <div className={`p-2 rounded-full shrink-0 ${
-          isBuy ? 'bg-emerald-100 dark:bg-emerald-800' : 'bg-red-100 dark:bg-red-800'
-        }`}>
-          <CheckCircle size={22} className={isBuy ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'} />
-        </div>
-        <div className="flex-1">
-          <p className={`font-extrabold text-base ${
-            isBuy ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'
-          }`}>
-            {isBuy ? '✅ Order Executed — Bought!' : '✅ Order Executed — Sold!'}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            <span className="font-bold">{quantity}</span> shares of{' '}
-            <span className="font-bold tracking-widest">{ticker}</span> for{' '}
-            <span className="font-bold">${total.toFixed(2)}</span>
-          </p>
-          <div className="mt-2 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-            <div className={`h-full rounded-full animate-shrink-bar ${
-              isBuy ? 'bg-emerald-500' : 'bg-red-500'
-            }`}></div>
-          </div>
-        </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0">
-          <X size={16} />
-        </button>
-      </div>
-    </div>
-  );
+const defaultAccount = {
+  cash: STARTING_CASH,
+  positions: {},
+  lastPrices: {},
+  history: [],
+  autoRules: []
 };
 
-// ─── Confirmation Modal ───────────────────────────────────────────────────────
-const ConfirmModal = ({ isOpen, onClose, onConfirm, type, ticker, quantity, price, total, balance }) => {
-  if (!isOpen) return null;
+function numberOrZero(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
 
-  const isBuy = type === 'buy';
-  const accentColor = isBuy ? 'emerald' : 'red';
-  const remainingBalance = isBuy ? balance - total : balance + total;
+function loadAccount() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultAccount;
+    const parsed = JSON.parse(raw);
+    return {
+      cash: numberOrZero(parsed.cash) || STARTING_CASH,
+      positions: parsed.positions ?? {},
+      lastPrices: parsed.lastPrices ?? {},
+      history: Array.isArray(parsed.history) ? parsed.history : [],
+      autoRules: Array.isArray(parsed.autoRules) ? parsed.autoRules : []
+    };
+  } catch {
+    return defaultAccount;
+  }
+}
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div
-        className="bg-white dark:bg-darkCard w-full max-w-md rounded-3xl shadow-2xl border border-gray-100 dark:border-darkBorder overflow-hidden animate-fade-in-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className={`flex items-center justify-between p-5 border-b border-gray-100 dark:border-darkBorder bg-${accentColor}-50 dark:bg-${accentColor}-900/20`}>
-          <div className="flex items-center gap-3">
-            {isBuy
-              ? <TrendingUp size={22} className="text-emerald-500" />
-              : <TrendingDown size={22} className="text-red-500" />
-            }
-            <h2 className={`text-xl font-extrabold text-${accentColor}-600 dark:text-${accentColor}-400`}>
-              Confirm {isBuy ? 'Buy' : 'Sell'} Order
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors text-gray-500"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="p-6 space-y-4">
-          {/* Order Summary */}
-          <div className="bg-gray-50 dark:bg-darkBg rounded-2xl p-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500 font-semibold">Stock</span>
-              <span className="font-extrabold text-gray-900 dark:text-white text-lg tracking-widest">{ticker}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500 font-semibold">Quantity</span>
-              <span className="font-bold text-gray-800 dark:text-gray-200">{quantity} shares</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500 font-semibold">Price per share</span>
-              <span className="font-bold text-gray-800 dark:text-gray-200">${price.toFixed(2)}</span>
-            </div>
-            <div className={`flex justify-between items-center pt-3 border-t border-gray-200 dark:border-darkBorder`}>
-              <span className="text-sm font-extrabold text-gray-700 dark:text-gray-300">Total {isBuy ? 'Cost' : 'Proceeds'}</span>
-              <span className={`text-xl font-extrabold text-${accentColor}-500`}>${total.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Balance Impact */}
-          <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 rounded-xl px-4 py-3">
-            <span className="text-sm font-semibold text-gray-500">Balance After Order</span>
-            <span className={`font-bold ${remainingBalance < 0 ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
-              ${remainingBalance.toFixed(2)}
-            </span>
-          </div>
-
-          {/* Warning if insufficient */}
-          {isBuy && balance < total && (
-            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl px-4 py-3 text-sm font-semibold">
-              <AlertTriangle size={16} />
-              Insufficient balance to complete this order!
-            </div>
-          )}
-        </div>
-
-        {/* Footer Buttons */}
-        <div className="flex gap-3 p-5 pt-0">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl border-2 border-gray-200 dark:border-darkBorder text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-50 dark:hover:bg-darkBg transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isBuy && balance < total}
-            className={`flex-1 py-3 rounded-xl font-bold text-white transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed
-              ${isBuy
-                ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30'
-                : 'bg-red-500 hover:bg-red-600 shadow-red-500/30'
-              }`}
-          >
-            Confirm {isBuy ? 'Buy' : 'Sell'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 const DemoTradingPage = () => {
   const { formatPrice } = useCurrency();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { userEmail } = useAuth();
 
-  const getSavedData = (key, defaultVal) => {
-    const saved = localStorage.getItem(`${key}_${userEmail}`);
-    return saved ? JSON.parse(saved) : defaultVal;
-  };
+  const activeTicker = searchParams.get('ticker')?.toUpperCase() || 'AAPL';
+  const marginEnabled = (() => {
+    try {
+      const v = localStorage.getItem(`marginEnabled_${userEmail}`);
+      return v ? JSON.parse(v) : false;
+    } catch {
+      return false;
+    }
+  })();
 
-  const [balance, setBalance] = useState(() => getSavedData('demoBalance', 100000));
-  const [ticker, setTicker] = useState('AAPL');
-  const [quantity, setQuantity] = useState(1);
-  const [portfolio, setPortfolio] = useState(() => getSavedData('demoPortfolio', [
-    { ticker: 'AAPL', quantity: 15, avgPrice: 150 },
-    { ticker: 'MSFT', quantity: 10, avgPrice: 280 }
-  ]));
-
-  // Confirmation modal state
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null });
-  // Success toast state
-  const [successToast, setSuccessToast] = useState({ isOpen: false, type: null, ticker: '', quantity: 0, total: 0 });
-
-  useEffect(() => {
-    setBalance(getSavedData('demoBalance', 100000));
-    setPortfolio(getSavedData('demoPortfolio', [
-      { ticker: 'AAPL', quantity: 15, avgPrice: 150 },
-      { ticker: 'MSFT', quantity: 10, avgPrice: 280 }
-    ]));
-  }, [userEmail]);
-
-  useEffect(() => {
-    localStorage.setItem(`demoBalance_${userEmail}`, JSON.stringify(balance));
-  }, [balance, userEmail]);
+  const [account, setAccount] = useState(() => loadAccount());
+  const [tickerInput, setTickerInput] = useState(activeTicker);
+  const [marketPrice, setMarketPrice] = useState(0);
+  const [quantity, setQuantity] = useState('1');
+  const [feedback, setFeedback] = useState('');
+  const [chartData, setChartData] = useState([]);
+  const [tradeSide, setTradeSide] = useState('buy');
+  
+  // Phase 2 Fields
+  const [tradingType, setTradingType] = useState('intraday'); // intraday, swing, positional, scalping
+  const [orderType, setOrderType] = useState('market'); // market, limit, stop_loss, stop_limit
+  const [targetPrice, setTargetPrice] = useState(''); 
+  const [showRuleBuilder, setShowRuleBuilder] = useState(false);
+  const [newRule, setNewRule] = useState({ condition: 'below', threshold: '', action: 'buy', amount: '1' });
 
   useEffect(() => {
-    localStorage.setItem(`demoPortfolio_${userEmail}`, JSON.stringify(portfolio));
-  }, [portfolio, userEmail]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(account));
+  }, [account]);
 
-  const mockPrices = {
-    'AAPL': 185.50, 'MSFT': 335.20, 'GOOGL': 140.00,
-    'TSLA': 210.10, 'AMZN': 130.40, 'NVDA': 167.61,
-    'META': 520.00, 'JPM': 195.00, 'NFLX': 610.00, 'V': 272.00
-  };
+  useEffect(() => {
+    if (!activeTicker) return;
 
-  const currentPrice = mockPrices[ticker] || 150.00;
-  const orderTotal = currentPrice * quantity;
+    let alive = true;
 
-  // Opens the modal — buy or sell
-  const openConfirm = (type) => {
-    setConfirmModal({ isOpen: true, type });
-  };
+    const fetchPrice = async () => {
+      try {
+        const data = await stockApi.getRealtimePrice(activeTicker);
+        if (!alive || !data || data.error) return;
+        const p = numberOrZero(data.price);
+        setMarketPrice(p);
+        
+        setAccount(prev => {
+          const newState = {
+            ...prev,
+            lastPrices: { ...prev.lastPrices, [activeTicker]: p }
+          };
+          
+          // Basic Auto-Rules Engine implementation
+          if (newState.autoRules && newState.autoRules.length > 0) {
+             const triggeredRules = newState.autoRules.filter(rule => 
+                rule.ticker === activeTicker && !rule.triggered &&
+                ((rule.condition === 'below' && p <= rule.threshold) || (rule.condition === 'above' && p >= rule.threshold))
+             );
+             // Trigger rule visually (actual execution would be here)
+             if (triggeredRules.length) {
+                console.log("Rule triggered: ", triggeredRules);
+                // Update local state to mark triggered
+                newState.autoRules = newState.autoRules.map(r => 
+                    triggeredRules.find(tr => tr.id === r.id) ? { ...r, triggered: true } : r
+                );
+                // Send Browser Notification
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  triggeredRules.forEach(r => {
+                      new Notification(`🤖 Auto-Trade Rule Triggered`, {
+                          body: `Executed ${r.action.toUpperCase()} ${r.amount} shares of ${r.ticker} at $${p}`,
+                          icon: '/favicon.ico'
+                      });
+                  });
+                }
+             }
+          }
+          return newState;
+        });
+      } catch {}
+    };
 
-  const closeConfirm = () => setConfirmModal({ isOpen: false, type: null });
+    fetchPrice();
+    const id = setInterval(fetchPrice, 30000);
 
-  const executeBuy = () => {
-    const cost = currentPrice * quantity;
-    if (balance >= cost) {
-      setBalance(b => b - cost);
-      setPortfolio(prev => {
-        const existing = prev.find(p => p.ticker === ticker);
-        if (existing) {
-          return prev.map(p => p.ticker === ticker
-            ? { ...p, quantity: p.quantity + quantity, avgPrice: ((p.avgPrice * p.quantity) + cost) / (p.quantity + quantity) }
-            : p
-          );
-        }
-        return [...prev, { ticker, quantity, avgPrice: currentPrice }];
+    const fetchChart = async () => {
+      try {
+        const cData = await stockApi.getChartData(activeTicker, '1d', '1m');
+        if (alive && cData) setChartData(cData);
+      } catch {}
+    };
+    fetchChart();
+
+    return () => { alive = false; clearInterval(id); };
+  }, [activeTicker]);
+
+  const position = account.positions[activeTicker] || { shares: 0, avgCost: 0 };
+  const tradeQty = Math.max(0, Math.floor(numberOrZero(quantity)));
+  // If limit/stop order, price logic changes visually
+  const execPrice = (orderType === 'market' || !targetPrice) ? marketPrice : numberOrZero(targetPrice);
+  const tradeValue = tradeQty * numberOrZero(execPrice);
+
+  const portfolio = useMemo(() => {
+    const entries = Object.entries(account.positions)
+      .filter(([, p]) => numberOrZero(p.shares) > 0)
+      .map(([ticker, p]) => {
+        const shares = numberOrZero(p.shares);
+        const avgCost = numberOrZero(p.avgCost);
+        const current = ticker === activeTicker ? numberOrZero(marketPrice) : numberOrZero(account.lastPrices[ticker] || avgCost);
+        const value = shares * current;
+        const pnl = shares * (current - avgCost);
+        return { ticker, shares, avgCost, current, value, pnl };
       });
-      closeConfirm();
-      setSuccessToast({ isOpen: true, type: 'buy', ticker, quantity, total: cost });
+    const holdingsValue = entries.reduce((sum, item) => sum + item.value, 0);
+    return { entries, holdingsValue, netWorth: account.cash + holdingsValue, totalPnl: account.cash + holdingsValue - STARTING_CASH };
+  }, [account.positions, account.cash, account.lastPrices, activeTicker, marketPrice]);
+
+  const availablePurchasingPower = marginEnabled ? account.cash * 2 : account.cash;
+
+  const setPercentageQty = (percent) => {
+    if (execPrice <= 0) return;
+    if (tradeSide === 'buy') {
+      setQuantity(Math.floor((availablePurchasingPower * percent) / execPrice).toString());
     } else {
-      closeConfirm();
+      setQuantity(Math.floor(position.shares * percent).toString());
     }
   };
 
-  const executeSell = () => {
-    const existing = portfolio.find(p => p.ticker === ticker);
-    if (existing && existing.quantity >= quantity) {
-      const proceeds = currentPrice * quantity;
-      setBalance(b => b + proceeds);
-      setPortfolio(prev =>
-        prev.map(p => p.ticker === ticker ? { ...p, quantity: p.quantity - quantity } : p)
-            .filter(p => p.quantity > 0)
-      );
-      closeConfirm();
-      setSuccessToast({ isOpen: true, type: 'sell', ticker, quantity, total: proceeds });
+  const handleTickerSubmit = (e) => {
+    e.preventDefault();
+    if (!tickerInput.trim()) return;
+    setSearchParams({ ticker: tickerInput.trim().toUpperCase() });
+    setFeedback('');
+  };
+  
+  const addHistory = (row) => {
+    setAccount((prev) => ({
+      ...prev,
+      history: [row, ...prev.history].slice(0, MAX_HISTORY)
+    }));
+  };
+
+  const executeTrade = () => {
+    setFeedback('');
+    if (orderType !== 'market') {
+      setFeedback('Note: Advanced orders simulate execution immediately at market price for now.');
+    }
+    if (marketPrice <= 0) return setFeedback('Market price unavailable.');
+    if (tradeQty <= 0) return setFeedback('Valid quantity required.');
+
+    if (tradeSide === 'buy') {
+      if (tradeValue > availablePurchasingPower) return setFeedback(`Insufficient purchasing power. Max ${formatPrice(availablePurchasingPower)}.`);
+      setAccount(prev => {
+        const p = prev.positions[activeTicker] || { shares: 0, avgCost: 0 };
+        return {
+          ...prev, cash: prev.cash - tradeValue,
+          positions: { ...prev.positions, [activeTicker]: { shares: p.shares + tradeQty, avgCost: ((p.shares * p.avgCost) + tradeValue) / (p.shares + tradeQty) } },
+          lastPrices: { ...prev.lastPrices, [activeTicker]: marketPrice }
+        };
+      });
+      addHistory({ id: Date.now().toString(), type: 'BUY', ticker: activeTicker, shares: tradeQty, price: marketPrice, total: tradeValue, time: new Date().toISOString() });
+      setFeedback(`Bought ${tradeQty} ${activeTicker}`);
     } else {
-      closeConfirm();
+      if (tradeQty > position.shares) return setFeedback(`You only hold ${position.shares} shares.`);
+      const proceeds = tradeQty * marketPrice;
+      setAccount(prev => {
+        const p = prev.positions[activeTicker];
+        const rem = p.shares - tradeQty;
+        const nPos = { ...prev.positions };
+        if (rem <= 0) delete nPos[activeTicker]; else nPos[activeTicker] = { shares: rem, avgCost: p.avgCost };
+        return { ...prev, cash: prev.cash + proceeds, positions: nPos, lastPrices: { ...prev.lastPrices, [activeTicker]: marketPrice } };
+      });
+      addHistory({ id: Date.now().toString(), type: 'SELL', ticker: activeTicker, shares: tradeQty, price: marketPrice, total: proceeds, time: new Date().toISOString() });
+      setFeedback(`Sold ${tradeQty} ${activeTicker}`);
     }
   };
 
-  const totalPortfolioValue = portfolio.reduce((acc, stock) => {
-    const p = mockPrices[stock.ticker] || stock.avgPrice;
-    return acc + (p * stock.quantity);
-  }, 0);
+  const saveAutoRule = () => {
+    if ('Notification' in window) Notification.requestPermission();
+    setAccount(prev => ({
+        ...prev,
+        autoRules: [...(prev.autoRules||[]), {
+            id: Date.now().toString(), ticker: activeTicker, ...newRule, triggered: false
+        }]
+    }));
+    setShowRuleBuilder(false);
+    setFeedback('Auto-trade rule saved.');
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Success Toast */}
-      <SuccessToast
-        isOpen={successToast.isOpen}
-        onClose={() => setSuccessToast(s => ({ ...s, isOpen: false }))}
-        type={successToast.type}
-        ticker={successToast.ticker}
-        quantity={successToast.quantity}
-        total={successToast.total}
-      />
-
-      {/* Confirmation Modal */}
-      <ConfirmModal
-        isOpen={confirmModal.isOpen}
-        type={confirmModal.type}
-        onClose={closeConfirm}
-        onConfirm={confirmModal.type === 'buy' ? executeBuy : executeSell}
-        ticker={ticker}
-        quantity={quantity}
-        price={currentPrice}
-        total={orderTotal}
-        balance={balance}
-      />
-
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
-        <div>
-          <h1 className="text-2xl font-bold tracking-wide text-gray-900 dark:text-white flex items-center">
-            <RefreshCw className="mr-3 text-primary" />
-            Demo <span className="text-primary ml-2">Trading</span>
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            Practice buying and selling stocks with real-time market simulation.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-1">Available Cash</p>
-          <div className="text-3xl font-extrabold text-green-500 tracking-tight">
-            {formatPrice(balance)}
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Top Bar */}
+      <div className="bg-white dark:bg-darkCard p-4 rounded-2xl border border-gray-100 dark:border-darkBorder flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="bg-primary/10 p-3 rounded-xl hidden md:block">
+            <Activity className="text-primary w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Trading Terminal</h1>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-0.5">Advanced Simulator</p>
           </div>
         </div>
+        <div className="flex items-center gap-4 bg-gray-50 dark:bg-darkBg px-4 py-2 rounded-xl border border-gray-200 dark:border-darkBorder">
+           <div className="flex flex-col border-r border-gray-200 dark:border-gray-700 pr-4">
+              <span className="text-[10px] uppercase font-bold text-gray-500 mb-0.5">Net Worth</span>
+              <span className="text-sm font-black dark:text-white">{formatPrice(portfolio.netWorth)}</span>
+           </div>
+           <div className="flex flex-col border-r border-gray-200 dark:border-gray-700 pr-4">
+              <span className="text-[10px] uppercase font-bold text-gray-500 mb-0.5">Available {marginEnabled && <span className="text-amber-500">(2X Margin)</span>}</span>
+              <span className="text-sm font-black text-primary">{formatPrice(availablePurchasingPower)}</span>
+           </div>
+           <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-gray-500 mb-0.5">Total PnL</span>
+              <span className={`text-sm font-black flex items-center ${portfolio.totalPnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {portfolio.totalPnl >= 0 ? '+' : ''}{formatPrice(portfolio.totalPnl)}
+              </span>
+           </div>
+        </div>
+        <form onSubmit={handleTickerSubmit} className="flex gap-2">
+          <input type="text" value={tickerInput} onChange={e => setTickerInput(e.target.value.toUpperCase())} placeholder="Search Symbol" className="w-full md:w-32 px-3 py-2 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm font-bold focus:outline-none focus:border-primary" />
+          <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-blue-600">LOAD</button>
+        </form>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trading Widget */}
-        <div className="lg:col-span-1 bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder flex flex-col h-full">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center">
-            <ShoppingCart className="mr-2 text-primary text-sm" /> Place Order
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Ticker Symbol</label>
-              <input
-                type="text"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 text-xl font-semibold"
-                placeholder="e.g. AAPL"
-              />
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* LEFT COLUMN: Charts & Portfolio */}
+        <div className="xl:col-span-8 flex flex-col gap-6">
+          <div className="bg-white dark:bg-darkCard p-2 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
+            <div className="px-4 pt-4 pb-2 flex justify-between items-center">
+              <div>
+                 <div className="flex items-center gap-3">
+                   <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-widest">{activeTicker}</h2>
+                 </div>
+                 <p className="text-sm font-bold mt-1 text-gray-800 dark:text-gray-200">
+                    {formatPrice(marketPrice)} <span className="text-emerald-500 text-xs ml-1 animate-pulse">● LIVE</span>
+                 </p>
+              </div>
             </div>
-
-            <div className="bg-gray-50 dark:bg-darkBg p-4 border border-gray-100 dark:border-darkBorder rounded-xl flex justify-between items-center">
-              <span className="text-sm text-gray-500 font-semibold">Latest Price</span>
-              <span className="text-xl font-bold dark:text-white">{formatPrice(currentPrice)}</span>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Quantity (Shares)</label>
-              <input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 text-xl font-semibold"
-              />
-            </div>
-
-            {/* Order summary preview */}
-            <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 flex justify-between items-center">
-              <span className="text-sm font-bold text-gray-500">Estimated Total</span>
-              <span className="font-extrabold text-primary text-lg">{formatPrice(orderTotal)}</span>
-            </div>
-
-            <div className="pt-2 flex justify-between gap-3">
-              <button
-                onClick={() => openConfirm('buy')}
-                className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex justify-center items-center gap-2"
-              >
-                <TrendingUp size={16} /> Buy
-              </button>
-              <button
-                onClick={() => openConfirm('sell')}
-                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/30 transition-all flex justify-center items-center gap-2"
-              >
-                <TrendingDown size={16} /> Sell
-              </button>
+            <div className="px-2">
+               <CandlestickChart data={chartData} timeInterval="1m" />
             </div>
           </div>
         </div>
 
-        {/* Portfolio Overview */}
-        <div className="lg:col-span-2 bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center">
-              <Briefcase className="mr-2 text-primary" size={20} /> My Portfolio
-            </h2>
-            <div className="text-right">
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Net Worth</p>
-              <p className="text-lg font-bold text-primary">{formatPrice(balance + totalPortfolioValue)}</p>
-            </div>
+        {/* RIGHT COLUMN: Advanced Order Form */}
+        <div className="xl:col-span-4 flex flex-col gap-6">
+          <div className="bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder overflow-hidden">
+             
+             {/* Trading System Selector */}
+             <div className="p-3 bg-gray-50 dark:bg-darkBg border-b border-gray-200 dark:border-darkBorder">
+                <select value={tradingType} onChange={e => setTradingType(e.target.value)} className="w-full bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder rounded-lg px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest">
+                   <option value="intraday">Intraday (Day Tradng)</option>
+                   <option value="swing">Swing Trading (Multi-day)</option>
+                   <option value="positional">Positional (Long Term)</option>
+                   <option value="scalping">Scalping (Seconds/Mins)</option>
+                </select>
+             </div>
+
+             {/* Buy/Sell Tabs */}
+             <div className="flex w-full border-b border-gray-200 dark:border-darkBorder">
+               <button onClick={() => setTradeSide('buy')} className={`flex-1 py-4 text-sm font-black uppercase tracking-wider ${tradeSide === 'buy' ? 'text-emerald-500 border-b-2 border-emerald-500' : 'text-gray-400'}`}>Buy</button>
+               <button onClick={() => setTradeSide('sell')} className={`flex-1 py-4 text-sm font-black uppercase tracking-wider ${tradeSide === 'sell' ? 'text-rose-500 border-b-2 border-rose-500' : 'text-gray-400'}`}>Sell</button>
+             </div>
+
+             <div className="p-5 space-y-5">
+                {/* Order Type Dropdown */}
+                <div>
+                   <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Order Type</label>
+                   <select value={orderType} onChange={e => setOrderType(e.target.value)} className="w-full bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl px-3 py-2.5 text-sm font-bold text-gray-900 dark:text-white">
+                      <option value="market">Market Order</option>
+                      <option value="limit">Limit Order</option>
+                      <option value="stop_loss">Stop Loss</option>
+                      <option value="stop_limit">Stop Limit</option>
+                   </select>
+                </div>
+
+                <div className="space-y-4">
+                  {orderType !== 'market' && (
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Target/Trigger Price</label>
+                      <input type="number" value={targetPrice} onChange={e => setTargetPrice(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm font-bold dark:text-white" />
+                    </div>
+                  )}
+
+                  <div>
+                     <label className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Quantity</label>
+                     <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className={`w-full px-3 py-2.5 bg-white dark:bg-darkBg border-2 rounded-xl text-sm font-bold dark:text-white ${tradeSide === 'buy' ? 'focus:border-emerald-500' : 'focus:border-rose-500'}`} />
+                     <div className="grid grid-cols-4 gap-2 mt-2">
+                        {[0.25, 0.50, 0.75, 1.0].map(pct => (
+                           <button key={pct} onClick={() => setPercentageQty(pct)} className="py-1 text-[10px] font-bold text-gray-500 bg-gray-100 dark:bg-darkBg rounded transition-colors">{pct === 1.0 ? 'MAX' : `${pct*100}%`}</button>
+                        ))}
+                     </div>
+                  </div>
+
+                  <div className="pt-2">
+                     <div className="flex justify-between text-sm font-black text-gray-800 dark:text-white">
+                        <span>Est. Total</span>
+                        <span>{formatPrice(tradeValue)}</span>
+                     </div>
+                  </div>
+
+                  <button onClick={executeTrade} className={`w-full py-3.5 rounded-xl text-white text-sm font-black tracking-widest uppercase shadow-lg ${tradeSide === 'buy' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/30'}`}>
+                     PLACE {tradeSide} {orderType} ORDER
+                  </button>
+
+                  {feedback && <div className="text-center text-xs font-bold text-primary mt-2">{feedback}</div>}
+                </div>
+             </div>
           </div>
+          
+          {/* Auto Trade Module */}
+          <div className="bg-white dark:bg-darkCard p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-darkBorder">
+             <div className="flex items-center justify-between mb-4">
+               <h2 className="text-sm font-black uppercase tracking-wider text-gray-800 dark:text-gray-100 flex items-center gap-2"><Settings size={14}/> Auto-Trade Rules</h2>
+             </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 dark:border-darkBorder text-gray-500 dark:text-gray-400">
-                  <th className="py-3 px-4 font-semibold text-sm">Asset</th>
-                  <th className="py-3 px-4 font-semibold text-sm text-right">Shares</th>
-                  <th className="py-3 px-4 font-semibold text-sm text-right">Avg Cost</th>
-                  <th className="py-3 px-4 font-semibold text-sm text-right">Current Value</th>
-                  <th className="py-3 px-4 font-semibold text-sm text-right">Return</th>
-                </tr>
-              </thead>
-              <tbody>
-                {portfolio.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="py-8 text-center text-gray-500 text-sm">No assets in portfolio. Start trading!</td>
-                  </tr>
-                ) : (
-                  portfolio.map((item, idx) => {
-                    const price = mockPrices[item.ticker] || item.avgPrice;
-                    const value = price * item.quantity;
-                    const totalCost = item.avgPrice * item.quantity;
-                    const profit = value - totalCost;
-                    const percentReturn = ((profit / totalCost) * 100).toFixed(2);
-                    const isProfit = profit >= 0;
+             <button onClick={() => setShowRuleBuilder(!showRuleBuilder)} className="w-full py-2 border border-dashed border-primary/50 text-primary rounded-xl text-xs font-bold hover:bg-primary/5">
+                + Add Trading Rule
+             </button>
 
-                    return (
-                      <tr key={idx} className="border-b border-gray-50 dark:border-darkBorder/50 hover:bg-gray-50 dark:hover:bg-darkBg/50 transition-colors">
-                        <td className="py-4 px-4 font-bold text-gray-900 dark:text-white">
-                          <div className="flex items-center">
-                            <Activity size={14} className="mr-2 text-primary opacity-50" /> {item.ticker}
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-gray-700 dark:text-gray-300 font-medium text-right">{item.quantity}</td>
-                        <td className="py-4 px-4 text-gray-700 dark:text-gray-300 text-right">{formatPrice(item.avgPrice)}</td>
-                        <td className="py-4 px-4 font-bold text-gray-900 dark:text-white text-right">{formatPrice(value)}</td>
-                        <td className={`py-4 px-4 font-bold text-right ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
-                          {isProfit ? '+' : ''}{formatPrice(profit)} ({percentReturn}%)
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+             {showRuleBuilder && (
+               <div className="mt-3 bg-gray-50 dark:bg-darkBg p-3 rounded-xl border border-gray-200 dark:border-darkBorder space-y-2">
+                 <select value={newRule.action} onChange={e=>setNewRule(f=>({...f, action: e.target.value}))} className="w-full p-2 text-xs bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder rounded text-black dark:text-white">
+                   <option value="buy">BUY {activeTicker}</option>
+                   <option value="sell">SELL {activeTicker}</option>
+                 </select>
+                 <div className="flex items-center gap-2 text-xs">
+                    <span>if price is</span>
+                    <select value={newRule.condition} onChange={e=>setNewRule(f=>({...f, condition: e.target.value}))} className="flex-1 p-2 bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder rounded text-black dark:text-white">
+                      <option value="below">Below</option>
+                      <option value="above">Above</option>
+                    </select>
+                 </div>
+                 <div className="flex items-center gap-2 text-xs">
+                    <span className="font-bold text-gray-500">$</span>
+                    <input type="number" placeholder="Price" value={newRule.threshold} onChange={e=>setNewRule(f=>({...f, threshold: e.target.value}))} className="flex-1 p-2 bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder rounded text-black dark:text-white" />
+                 </div>
+                 <div className="flex items-center gap-2 text-xs">
+                    <span>Qty</span>
+                    <input type="number" placeholder="Shares" value={newRule.amount} onChange={e=>setNewRule(f=>({...f, amount: e.target.value}))} className="flex-1 p-2 bg-white dark:bg-darkCard border border-gray-200 dark:border-darkBorder rounded text-black dark:text-white" />
+                 </div>
+                 <button onClick={saveAutoRule} className="w-full bg-primary text-white py-2 rounded font-bold text-xs">Save Rule</button>
+               </div>
+             )}
+
+             <div className="mt-4 space-y-2">
+               {account.autoRules?.filter(r => r.ticker === activeTicker).map(rule => (
+                  <div key={rule.id} className="text-[10px] p-2 bg-gray-50 dark:bg-darkBorder rounded-lg flex items-center justify-between border border-gray-200 dark:border-gray-700">
+                     <span><b>{rule.action.toUpperCase()}</b> {rule.amount} @ {rule.condition} ${rule.threshold}</span>
+                     <span className={rule.triggered ? 'text-emerald-500' : 'text-amber-500'}>{rule.triggered ? 'Executed' : 'Active'}</span>
+                  </div>
+               ))}
+             </div>
           </div>
         </div>
       </div>
