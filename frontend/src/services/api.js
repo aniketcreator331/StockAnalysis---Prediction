@@ -21,6 +21,11 @@ export const stockApi = {
     const response = await httpClient.get(`${API_BASE_URL}/chart/${ticker}?period=${period}&interval=${interval}`);
     return response.data;
   },
+
+  getTechnicalIndicators: async (ticker, period = "3mo", interval = "1d") => {
+    const response = await httpClient.get(`${API_BASE_URL}/technical/${ticker}?period=${period}&interval=${interval}`);
+    return response.data;
+  },
   
   getPredictionData: async (ticker) => {
     const response = await httpClient.get(`${API_BASE_URL}/predict/${ticker}`);
