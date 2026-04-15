@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { stockApi } from '../services/api';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useAuth } from '../contexts/AuthContext';
 import CandlestickChart from '../charts/CandlestickChart';
 import { Activity, Wallet, TrendingUp, TrendingDown, DollarSign, Settings, Bell, Clock } from 'lucide-react';
 

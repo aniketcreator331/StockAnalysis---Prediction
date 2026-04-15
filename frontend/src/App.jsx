@@ -1,31 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
-import HomePage from './pages/HomePage';
-import Dashboard from './pages/Dashboard';
-import PredictionPage from './pages/PredictionPage';
-import ComparisonPage from './pages/ComparisonPage';
-import CompareTwoPage from './pages/CompareTwoPage';
-import TickersPage from './pages/TickersPage';
-import DemoTradingPage from './pages/DemoTradingPage';
-import CalculatorsPage from './pages/CalculatorsPage';
-import PortfolioPage from './pages/PortfolioPage';
-import IntradayFnOPage from './pages/IntradayFnOPage';
-import AboutPage from './pages/AboutPage';
-import MarketExplorerPage from './pages/MarketExplorerPage';
-import WatchlistPage from './pages/WatchlistPage';
-import PriceAlertsPage from './pages/PriceAlertsPage';
-import OrderBookPage from './pages/OrderBookPage';
-import ChartIndicatorsPage from './pages/ChartIndicatorsPage';
-import { Moon, Sun, DollarSign, HelpCircle, User, UserPlus, Settings } from 'lucide-react';
-import { useCurrency } from './contexts/CurrencyContext';
+import { HelpCircle, User, UserPlus, Settings } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import HelpModal from './components/HelpModal';
 import SettingsModal from './components/SettingsModal';
 import AuthModal from './components/AuthModal';
 import ScarletAssistant from './components/ScarletAssistant';
-import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
-import { authApi } from './services/api';
+
+const HomePage = lazy(() => import('./pages/HomePage'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PredictionPage = lazy(() => import('./pages/PredictionPage'));
+const ComparisonPage = lazy(() => import('./pages/ComparisonPage'));
+const CompareTwoPage = lazy(() => import('./pages/CompareTwoPage'));
+const TickersPage = lazy(() => import('./pages/TickersPage'));
+const DemoTradingPage = lazy(() => import('./pages/DemoTradingPage'));
+const CalculatorsPage = lazy(() => import('./pages/CalculatorsPage'));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
+const IntradayFnOPage = lazy(() => import('./pages/IntradayFnOPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const MarketExplorerPage = lazy(() => import('./pages/MarketExplorerPage'));
+const WatchlistPage = lazy(() => import('./pages/WatchlistPage'));
+const PriceAlertsPage = lazy(() => import('./pages/PriceAlertsPage'));
+const OrderBookPage = lazy(() => import('./pages/OrderBookPage'));
+const ChartIndicatorsPage = lazy(() => import('./pages/ChartIndicatorsPage'));
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
@@ -33,7 +31,6 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authDefaultLogin, setAuthDefaultLogin] = useState(true);
-  const { currency, setCurrency } = useCurrency();
   const { user, setUser } = useAuth();
   
   useEffect(() => {
@@ -96,24 +93,32 @@ function App() {
           
           <main className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-darkBg p-6">
             <div className="flex-1">
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/predictions" element={<PredictionPage />} />
-                <Route path="/comparison" element={<ComparisonPage />} />
-                <Route path="/comparetwo" element={<CompareTwoPage />} />
-                <Route path="/tickers" element={<TickersPage />} />
-                <Route path="/demotrading" element={<DemoTradingPage />} />
-                <Route path="/calculators" element={<CalculatorsPage />} />
-                <Route path="/portfolio" element={<PortfolioPage />} />
-                <Route path="/intraday-fno" element={<IntradayFnOPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/market-explorer" element={<MarketExplorerPage />} />
-                <Route path="/watchlist" element={<WatchlistPage />} />
-                <Route path="/alerts" element={<PriceAlertsPage />} />
-                <Route path="/order-book" element={<OrderBookPage />} />
-                <Route path="/charts" element={<ChartIndicatorsPage />} />
-              </Routes>
+              <Suspense
+                fallback={
+                  <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                  </div>
+                }
+              >
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/predictions" element={<PredictionPage />} />
+                  <Route path="/comparison" element={<ComparisonPage />} />
+                  <Route path="/comparetwo" element={<CompareTwoPage />} />
+                  <Route path="/tickers" element={<TickersPage />} />
+                  <Route path="/demotrading" element={<DemoTradingPage />} />
+                  <Route path="/calculators" element={<CalculatorsPage />} />
+                  <Route path="/portfolio" element={<PortfolioPage />} />
+                  <Route path="/intraday-fno" element={<IntradayFnOPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/market-explorer" element={<MarketExplorerPage />} />
+                  <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/alerts" element={<PriceAlertsPage />} />
+                  <Route path="/order-book" element={<OrderBookPage />} />
+                  <Route path="/charts" element={<ChartIndicatorsPage />} />
+                </Routes>
+              </Suspense>
             </div>
             
             {/* Footer with Founders Details */}

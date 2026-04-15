@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import axios from 'axios';
+import httpClient from '../services/httpClient';
 
 const UserDataContext = createContext(null);
 
@@ -34,7 +34,7 @@ export const UserDataProvider = ({ children }) => {
 
     const load = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/userdata/${encodeURIComponent(userEmail)}`);
+        const res = await httpClient.get(`${API_BASE}/userdata/${encodeURIComponent(userEmail)}`);
         const d = res.data;
         setFollowedStocks(d.followedStocks || []);
         setSearchHistory(d.searchHistory || []);
@@ -73,7 +73,7 @@ export const UserDataProvider = ({ children }) => {
         ...patch,
       };
       try {
-        await axios.post(`${API_BASE}/userdata`, payload);
+        await httpClient.post(`${API_BASE}/userdata`, payload);
       } catch {
         // Silently fail — data is already in state
       }

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { stockApi } from '../services/api';
 import MetricCard from '../components/MetricCard';
 import CandlestickChart from '../charts/CandlestickChart';
@@ -20,25 +21,27 @@ const Dashboard = () => {
   const [intervalOption, setIntervalOption] = useState('1d');
   const [periodOption, setPeriodOption] = useState('3mo');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const dbData = await stockApi.getDashboardData(ticker);
+      const [dbData, cData] = await Promise.all([
+        stockApi.getDashboardData(ticker),
+        stockApi.getChartData(ticker, periodOption, intervalOption),
+      ]);
+
       setDashboardData(dbData);
+      setChartData(cData);
       
       // Track view history on successful fetch
       if (dbData && dbData.symbol) {
         addViewHistory(dbData.symbol);
       }
-      
-      const cData = await stockApi.getChartData(ticker, periodOption, intervalOption);
-      setChartData(cData);
     } catch (error) {
       console.error("Error fetching dashboard data", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [ticker, periodOption, intervalOption, addViewHistory]);
 
   useEffect(() => {
     fetchData();
@@ -49,7 +52,7 @@ const Dashboard = () => {
     }, 300000);
 
     return () => clearInterval(interval);
-  }, [ticker, periodOption, intervalOption]);
+  }, [fetchData]);
 
   const handleSearch = (e) => {
     e.preventDefault();

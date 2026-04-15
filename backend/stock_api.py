@@ -1,8 +1,37 @@
 from fastapi import APIRouter
+import time
+import threading
 import data_fetcher
 import prediction_model
 
 router = APIRouter()
+
+QUOTE_TTL_SECONDS = 15
+CHART_TTL_SECONDS = 60
+
+_cache_lock = threading.Lock()
+_quote_cache = {}
+_chart_cache = {}
+
+
+def _cache_get(cache_bucket, key):
+    now = time.time()
+    with _cache_lock:
+        entry = cache_bucket.get(key)
+        if not entry:
+            return None
+        if entry["expires_at"] <= now:
+            del cache_bucket[key]
+            return None
+        return entry["value"]
+
+
+def _cache_set(cache_bucket, key, value, ttl_seconds):
+    with _cache_lock:
+        cache_bucket[key] = {
+            "value": value,
+            "expires_at": time.time() + ttl_seconds,
+        }
 
 TOP_STOCKS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "JPM", "JNJ", "V", 
@@ -19,6 +48,11 @@ TOP_STOCKS = [
 
 @router.get("/dashboard/{ticker}")
 def get_dashboard_summary(ticker: str):
+    ticker_key = ticker.upper()
+    cached = _cache_get(_quote_cache, ticker_key)
+    if cached is not None:
+        return cached
+
     data = data_fetcher.fetch_realtime_quote(ticker)
     if not data:
         return {"error": "Failed to fetch data"}
@@ -31,14 +65,22 @@ def get_dashboard_summary(ticker: str):
     except Exception:
         data['daily_growth'] = 0.0
 
+    _cache_set(_quote_cache, ticker_key, data, QUOTE_TTL_SECONDS)
     return data
 
 @router.get("/chart/{ticker}")
 def get_chart_data(ticker: str, period: str = "3mo", interval: str = "1d"):
+    cache_key = f"{ticker.upper()}|{period}|{interval}"
+    cached = _cache_get(_chart_cache, cache_key)
+    if cached is not None:
+        return cached
+
     df = data_fetcher.fetch_historical_data(ticker, period=period, interval=interval)
     if df is None:
         return {"error": "Failed to fetch data"}
-    return df.to_dict(orient="records")
+    records = df.to_dict(orient="records")
+    _cache_set(_chart_cache, cache_key, records, CHART_TTL_SECONDS)
+    return records
 
 @router.get("/predict/{ticker}")
 def predict_stock(ticker: str):
