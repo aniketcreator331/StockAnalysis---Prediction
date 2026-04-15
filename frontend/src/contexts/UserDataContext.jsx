@@ -5,7 +5,7 @@ import httpClient from '../services/httpClient';
 const UserDataContext = createContext(null);
 
 const API_BASE = (() => {
-  let base = import.meta.env.VITE_API_BASE_URL || 'https://stockanalysis-prediction.onrender.com/api';
+  let base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
   if (!base.endsWith('/api')) base += '/api';
   return base;
 })();

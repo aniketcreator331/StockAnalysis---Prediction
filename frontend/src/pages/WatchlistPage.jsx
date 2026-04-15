@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 const STORAGE_KEY = 'stockDashboard_watchlists';
 
 const defaultLists = [
-  { id: 'default', name: 'My Watchlist', stocks: ['AAPL', 'TSLA', 'NVDA', 'META'] },
+  { id: 'default', name: 'My Watchlist', stocks: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM', 'RELIANCE', 'TCS', 'INFY', 'HDFCBANK'] },
 ];
 
 function loadLists() {

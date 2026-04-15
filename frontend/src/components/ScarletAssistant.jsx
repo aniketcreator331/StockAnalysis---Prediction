@@ -162,7 +162,7 @@ function SuggestionChips({ suggestions, onSelect }) {
    WATCHLIST TAB
 ───────────────────────────────────────────────────────────────────────────── */
 function WatchlistTab({ onAsk }) {
-  const [tickers, setTickers] = useState(() => JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '["AAPL","TSLA","NVDA","MSFT"]'));
+  const [tickers, setTickers] = useState(() => JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '["AAPL","MSFT","GOOGL","AMZN","TSLA","META","NVDA","JPM","RELIANCE","TCS","INFY","HDFCBANK"]'));
   const [input, setInput] = useState('');
   const [prices, setPrices] = useState({});
   const [loading, setLoading] = useState({});

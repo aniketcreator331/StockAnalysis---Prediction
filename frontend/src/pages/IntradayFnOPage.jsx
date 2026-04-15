@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
+import TradeConfirmModal from '../components/TradeConfirmModal';
+import { STOCK_SYMBOLS } from '../data/stockSymbols';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -13,14 +15,36 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const BASE_PRICES = {
   AAPL:185.50, MSFT:335.20, GOOGL:140.00, TSLA:210.10, AMZN:130.40,
   NVDA:167.61, META:520.00, JPM:195.00, NFLX:610.00, V:272.00,
-  RELIANCE:2480, INFY:1580, TCS:3900, WIPRO:480, HDFC:1680,
+  JNJ:155.00, WMT:68.00, MA:470.00, UNH:520.00, DIS:102.00,
+  HD:355.00, BAC:39.00, XOM:110.00, INTC:34.00, AMD:165.00,
+  CSCO:49.00, PFE:29.00, KO:61.00, PEP:167.00, ORCL:125.00,
+  QCOM:175.00, IBM:187.00, AVGO:1290.00, MCD:288.00, NKE:95.00,
+  RELIANCE:2480, TCS:3900, INFY:1580, HDFCBANK:1680, ICICIBANK:1120,
+  SBIN:840, LT:3720, BHARTIARTL:1320, ITC:430, AXISBANK:1180,
+  KOTAKBANK:1820, BAJFINANCE:6800, HINDUNILVR:2530, ASIANPAINT:3050,
+  SUNPHARMA:1590, TATAMOTORS:920, TITAN:3540, MARUTI:12500, WIPRO:480,
+  ADANIENT:3050, ADANIPORTS:1480, ONGC:280, NTPC:385, POWERGRID:335,
+  COALINDIA:485, NESTLEIND:2400, DRREDDY:6400, CIPLA:1520, BPCL:620,
+  ULTRACEMCO:11300, GRASIM:2420, BAJAJFINSV:1620, EICHERMOT:4700, M_M:2900,
+  DIVISLAB:4100, APOLLOHOSP:6700, INDUSINDBK:1510, HCLTECH:1660, TECHM:1620,
+  TATACONSUM:1150, HDFCLIFE:720, SBILIFE:1620, JSWSTEEL:965, TATASTEEL:165,
   'NIFTY50':22800, 'BANKNIFTY':48200,
 };
 
 const INTRADAY_LEVERAGE = 5;  // 5x margin for intraday
 const LOT_SIZES = {
   AAPL:100, MSFT:100, GOOGL:100, TSLA:100, NVDA:100,
-  AMZN:100, META:100, 'NIFTY50':50, 'BANKNIFTY':25,
+  AMZN:100, META:100, JPM:100, NFLX:100, V:100,
+  RELIANCE:250, TCS:150, INFY:300, HDFCBANK:550, ICICIBANK:1375,
+  SBIN:1500, LT:250, BHARTIARTL:950, ITC:3000, AXISBANK:1200,
+  KOTAKBANK:400, BAJFINANCE:125, HINDUNILVR:300, ASIANPAINT:250,
+  SUNPHARMA:675, TATAMOTORS:550, TITAN:150, MARUTI:25, WIPRO:3000,
+  ADANIENT:50, ADANIPORTS:500, ONGC:1550, NTPC:1500, POWERGRID:2500,
+  COALINDIA:975, NESTLEIND:40, DRREDDY:125, CIPLA:650, BPCL:1650,
+  ULTRACEMCO:100, GRASIM:100, BAJAJFINSV:125, EICHERMOT:24, M_M:750,
+  DIVISLAB:200, APOLLOHOSP:50, INDUSINDBK:1200, HCLTECH:350, TECHM:700,
+  TATACONSUM:400, HDFCLIFE:300, SBILIFE:750, JSWSTEEL:675, TATASTEEL:6250,
+  'NIFTY50':50, 'BANKNIFTY':25,
 };
 
 const EXPIRIES = ['25 Apr 2026', '01 May 2026', '29 May 2026', '26 Jun 2026'];
@@ -117,9 +141,10 @@ function Card({ children, className='' }) {
 }
 
 // ─── Order Panel ──────────────────────────────────────────────────────────────
-function OrderPanel({ mode, ticker, setTicker, balance, onExecute, prices }) {
+function OrderPanel({ mode, ticker, setTicker, balance, onRequestConfirm, prices }) {
   const isIntraday = mode === 'intraday';
   const [side, setSide]      = useState('BUY');
+  const [symbolInput, setSymbolInput] = useState(ticker);
   const [qty, setQty]        = useState(1);
   const [orderType, setOT]   = useState('MARKET');
   const [limitPx, setLimPx]  = useState('');
@@ -132,13 +157,24 @@ function OrderPanel({ mode, ticker, setTicker, balance, onExecute, prices }) {
   const leverage  = isIntraday ? INTRADAY_LEVERAGE : 1;
   const margin    = (execPrice * qty) / leverage;
   const totalVal  = execPrice * qty;
+  const symbolSuggestions = STOCK_SYMBOLS.filter(symbol => {
+    const allowed = isIntraday ? BASE_PRICES[symbol] : LOT_SIZES[symbol];
+    if (!allowed) return false;
+    const query = symbolInput.trim().toUpperCase();
+    return !query || symbol.startsWith(query) || symbol.includes(query);
+  }).slice(0, 20);
+
+  useEffect(() => {
+    setSymbolInput(ticker);
+  }, [ticker]);
 
   const execute = () => {
     if (side==='BUY' && margin > balance) {
-      onExecute(null, `Insufficient margin. Need ₹${fmt(margin)}, have ₹${fmt(balance)}`);
+      onRequestConfirm(null, `Insufficient margin. Need ₹${fmt(margin)}, have ₹${fmt(balance)}`);
       return;
     }
-    onExecute({
+
+    onRequestConfirm({
       ticker, side, qty: parseInt(qty,10), execPrice,
       sl:    parseFloat(sl)||null,
       target:parseFloat(target)||null,
@@ -167,12 +203,21 @@ function OrderPanel({ mode, ticker, setTicker, balance, onExecute, prices }) {
       {/* Symbol */}
       <div>
         <label className="label-xs">Symbol</label>
-        <select value={ticker} onChange={e=>setTicker(e.target.value)}
-          className="input-field font-bold">
-          {Object.keys(isIntraday ? BASE_PRICES : LOT_SIZES).map(k=>(
-            <option key={k} value={k}>{k}</option>
-          ))}
-        </select>
+        <input
+          value={symbolInput}
+          onChange={e => setSymbolInput(e.target.value.toUpperCase())}
+          onBlur={() => {
+            const next = symbolInput.trim().toUpperCase();
+            if (!next) return;
+            setTicker(next);
+          }}
+          list={`symbol-suggestions-${mode}`}
+          placeholder="Type a stock symbol"
+          className="input-field font-bold uppercase"
+        />
+        <datalist id={`symbol-suggestions-${mode}`}>
+          {symbolSuggestions.map(symbol => <option key={symbol} value={symbol} />)}
+        </datalist>
       </div>
 
       {/* Order Type */}
@@ -526,7 +571,7 @@ function OptionsChain({ underlying, spot, prices, onTrade }) {
 }
 
 // ─── FNO Order Panel ──────────────────────────────────────────────────────────
-function FnOOrderPanel({ balance, prices, onExecute }) {
+function FnOOrderPanel({ balance, prices, onRequestConfirm }) {
   const [instrType, setInstrType] = useState('options'); // 'futures' | 'options'
   const [underlying, setUnderlying] = useState('NIFTY50');
   const [side, setSide]  = useState('BUY');
@@ -547,10 +592,10 @@ function FnOOrderPanel({ balance, prices, onExecute }) {
 
   const execute = () => {
     if(side==='BUY' && margin > balance){
-      onExecute(null,'Insufficient margin balance');
+      onRequestConfirm(null,'Insufficient margin balance');
       return;
     }
-    onExecute({
+    onRequestConfirm({
       fno:true, underlying, side,
       isFutures: instrType==='futures',
       optType: instrType==='options' ? optType : null,
@@ -746,7 +791,7 @@ export default function IntradayFnOPage() {
 
   // Try to fetch real prices
   useEffect(()=>{
-    ['AAPL','MSFT','GOOGL','TSLA','NVDA','JPM','META','AMZN','NFLX','V'].forEach(async ticker=>{
+    ['AAPL','MSFT','GOOGL','TSLA','NVDA','JPM','META','AMZN','NFLX','V','RELIANCE','TCS','INFY','HDFCBANK','ICICIBANK','SBIN','LT','BHARTIARTL','ITC','AXISBANK'].forEach(async ticker=>{
       try {
         const r = await fetch(`${API_BASE}/api/dashboard/${ticker}`);
         const d = await r.json();
@@ -776,6 +821,7 @@ export default function IntradayFnOPage() {
   const [fnoPositions, setFnoPositions]   = useState([]);
   const [tradeLog, setTradeLog]           = useState([]);
   const [toast, setToast]                 = useState(null);
+  const [pendingTrade, setPendingTrade]   = useState(null);
 
   const addLog=(entry)=>setTradeLog(prev=>[...prev,{...entry, time:new Date().toLocaleTimeString()}]);
 
@@ -825,6 +871,7 @@ export default function IntradayFnOPage() {
   // ── Execute F&O Order ──────────────────────────────────────────────────────
   const executeFnO = (order, err) => {
     if(!order){setToast({type:'error',text:err});return;}
+    const label = order.isFutures ? 'FUT' : (order.optType==='call'?'CE':'PE');
     saveBalance(balance - order.margin);
     setFnoPositions(prev=>[...prev,{
       underlying: order.underlying, side: order.side,
@@ -833,7 +880,6 @@ export default function IntradayFnOPage() {
       lots: order.lots, lot: order.lot,
       avgPremium: order.avgPremium, margin: order.margin,
     }]);
-    const label = order.isFutures ? 'FUT' : (order.optType==='call'?'CE':'PE');
     addLog({symbol:`${order.underlying} ${label}`,tradeType:'FNO',side:order.side,price:order.avgPremium,qty:`${order.lots}L`,pnl:null});
     setToast({type:'success',text:`✅ ${order.side} ${order.lots}L ${order.underlying} ${label} @ $${fmt(order.avgPremium)}`});
   };
@@ -850,15 +896,30 @@ export default function IntradayFnOPage() {
   const chainTrade=(info)=>{
     const margin = info.premium*(LOT_SIZES[info.underlying]||100);
     if(info.side==='BUY' && margin>balance){setToast({type:'error',text:'Insufficient margin'});return;}
-    if(info.side==='BUY') saveBalance(balance-margin);
-    setFnoPositions(prev=>[...prev,{
-      underlying:info.underlying, side:info.side,
-      isFutures:false, optType:info.type,
-      strike:info.strike, expiry:info.expiry,
-      lots:1, lot:LOT_SIZES[info.underlying]||100,
-      avgPremium:info.premium, margin,
-    }]);
-    setToast({type:'success',text:`✅ ${info.side} 1L ${info.underlying} ${info.type==='call'?'CE':'PE'} ${fmt(info.strike,0)} @ $${fmt(info.premium)}`});
+    setPendingTrade({ kind: 'chain', info: {...info, underlying: info.underlying }, margin });
+  };
+
+  const confirmPendingTrade = () => {
+    if (!pendingTrade) return;
+
+    if (pendingTrade.kind === 'intraday') {
+      executeIntraday(pendingTrade.order);
+    } else if (pendingTrade.kind === 'fno') {
+      executeFnO(pendingTrade.order);
+    } else if (pendingTrade.kind === 'chain') {
+      const { info, margin } = pendingTrade;
+      if (info.side === 'BUY') saveBalance(balance - margin);
+      setFnoPositions(prev=>[...prev,{
+        underlying:info.underlying, side:info.side,
+        isFutures:false, optType:info.type,
+        strike:info.strike, expiry:info.expiry,
+        lots:1, lot:LOT_SIZES[info.underlying]||100,
+        avgPremium:info.premium, margin,
+      }]);
+      setToast({type:'success',text:`✅ ${info.side} 1L ${info.underlying} ${info.type==='call'?'CE':'PE'} ${fmt(info.strike,0)} @ $${fmt(info.premium)}`});
+    }
+
+    setPendingTrade(null);
   };
 
   // ── Total scores ──────────────────────────────────────────────────────────
@@ -945,20 +1006,34 @@ export default function IntradayFnOPage() {
       {tab==='intraday' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
-            <OrderPanel mode="intraday" ticker={intradayTicker} setTicker={setIntradayTicker}
-              balance={balance} prices={prices} onExecute={executeIntraday}/>
-            {/* Live Ticker board */}
+            <OrderPanel
+              mode="intraday"
+              ticker={intradayTicker}
+              setTicker={setIntradayTicker}
+              balance={balance}
+              prices={prices}
+              onRequestConfirm={(order, err) => {
+                if (!order) {
+                  setToast({ type: 'error', text: err });
+                  return;
+                }
+                setPendingTrade({ kind: 'intraday', order });
+              }}
+            />
             <Card className="mt-4 p-4">
               <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Live Prices</h3>
               <div className="space-y-1.5">
-                {['AAPL','MSFT','TSLA','NVDA','GOOGL','JPM','META'].map(t=>{
-                  const p=prices[t];
-                  const base=BASE_PRICES[t];
-                  const chg=((p-base)/base)*100;
+                {['AAPL','MSFT','TSLA','NVDA','GOOGL','JPM','META','AMZN','NFLX','V','RELIANCE','TCS','INFY','HDFCBANK','ICICIBANK','SBIN','LT','BHARTIARTL','ITC','AXISBANK'].map(t => {
+                  const p = prices[t];
+                  const base = BASE_PRICES[t];
+                  const chg = ((p - base) / base) * 100;
                   return (
-                    <div key={t} className="flex justify-between items-center py-1 border-b border-gray-50 dark:border-darkBorder/30 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBg/40 rounded px-2"
-                      onClick={()=>setIntradayTicker(t)}>
-                      <span className={`text-xs font-extrabold ${intradayTicker===t?'text-primary':''}`}>{t}</span>
+                    <div
+                      key={t}
+                      className="flex justify-between items-center py-1 border-b border-gray-50 dark:border-darkBorder/30 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-darkBg/40 rounded px-2"
+                      onClick={() => setIntradayTicker(t)}
+                    >
+                      <span className={`text-xs font-extrabold ${intradayTicker===t ? 'text-primary' : ''}`}>{t}</span>
                       <div className="text-right">
                         <span className="text-xs font-bold text-gray-800 dark:text-white">${fmt(p)}</span>
                         <span className={`ml-2 text-[10px] font-bold ${clr(chg)}`}>{fmtP(chg)}</span>
@@ -979,7 +1054,17 @@ export default function IntradayFnOPage() {
       {tab==='fno' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-1">
-            <FnOOrderPanel balance={balance} prices={prices} onExecute={executeFnO}/>
+            <FnOOrderPanel
+              balance={balance}
+              prices={prices}
+              onRequestConfirm={(order, err) => {
+                if (!order) {
+                  setToast({ type: 'error', text: err });
+                  return;
+                }
+                setPendingTrade({ kind: 'fno', order });
+              }}
+            />
           </div>
           <div className="lg:col-span-2">
             <FnOPositions positions={fnoPositions} prices={prices} onExit={exitFnO}/>
@@ -991,18 +1076,67 @@ export default function IntradayFnOPage() {
       {tab==='chain' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {Object.keys(LOT_SIZES).map(u=>(
-              <button key={u}
-                onClick={()=>setFnoPositions(p=>p)} // just selecting: we use chainTrade to execute
-                className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-darkBorder text-gray-600 dark:text-gray-300 font-semibold hover:bg-primary/10 hover:text-primary transition-all">
-                {u} — ${fmt(prices[u]||BASE_PRICES[u]||0)}
+            {Object.keys(LOT_SIZES).map(u => (
+              <button
+                key={u}
+                onClick={() => setFnoPositions(p => p)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-darkBorder text-gray-600 dark:text-gray-300 font-semibold hover:bg-primary/10 hover:text-primary transition-all"
+              >
+                {u} — ${fmt(prices[u] || BASE_PRICES[u] || 0)}
               </button>
             ))}
           </div>
-          <OptionsChain underlying={fnoUnderlying} spot={chainSpot} prices={prices}
-            onTrade={(info)=>chainTrade({...info, underlying: fnoUnderlying})}/>
+          <OptionsChain
+            underlying={fnoUnderlying}
+            spot={chainSpot}
+            prices={prices}
+            onTrade={(info) => setPendingTrade({ kind: 'chain', info: { ...info, underlying: fnoUnderlying }, margin: info.premium * (LOT_SIZES[fnoUnderlying] || 100) })}
+          />
         </div>
       )}
+
+      <TradeConfirmModal
+        isOpen={Boolean(pendingTrade)}
+        title={pendingTrade?.kind === 'intraday' ? 'Confirm Intraday Order' : pendingTrade?.kind === 'fno' ? 'Confirm F&O Order' : 'Confirm Options Trade'}
+        details={pendingTrade ? (() => {
+          if (pendingTrade.kind === 'intraday') {
+            const order = pendingTrade.order;
+            return [
+              { label: 'Type', value: 'Intraday' },
+              { label: 'Symbol', value: order.ticker },
+              { label: 'Side', value: order.side },
+              { label: 'Quantity', value: order.qty },
+              { label: 'Exec Price', value: `$${fmt(order.execPrice)}` },
+              { label: 'Margin', value: `$${fmt(order.margin)}` },
+            ];
+          }
+          if (pendingTrade.kind === 'fno') {
+            const order = pendingTrade.order;
+            return [
+              { label: 'Type', value: order.isFutures ? 'Futures' : 'Options' },
+              { label: 'Underlying', value: order.underlying },
+              { label: 'Side', value: order.side },
+              { label: 'Lots', value: order.lots },
+              { label: 'Premium', value: `$${fmt(order.avgPremium)}` },
+              { label: 'Margin', value: `$${fmt(order.margin)}` },
+            ];
+          }
+          const info = pendingTrade.info;
+          return [
+            { label: 'Type', value: 'Options Chain' },
+            { label: 'Underlying', value: info.underlying },
+            { label: 'Side', value: info.side },
+            { label: 'Strike', value: fmt(info.strike, 0) },
+            { label: 'Premium', value: `$${fmt(info.premium)}` },
+            { label: 'Margin', value: `$${fmt(pendingTrade.margin)}` },
+          ];
+        })() : []}
+        warning="Review the order details carefully. Confirming will place the simulated trade immediately."
+        confirmLabel="Place Order"
+        confirmTone={pendingTrade?.kind === 'intraday' ? 'emerald' : 'red'}
+        onConfirm={confirmPendingTrade}
+        onCancel={() => setPendingTrade(null)}
+      />
 
       {/* ── Trade Log Tab ── */}
       {tab==='log' && (

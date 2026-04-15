@@ -4,6 +4,8 @@ import { stockApi } from '../services/api';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
 import CandlestickChart from '../charts/CandlestickChart';
+import TradeConfirmModal from '../components/TradeConfirmModal';
+import { STOCK_SYMBOLS } from '../data/stockSymbols';
 import { Activity, Wallet, TrendingUp, TrendingDown, DollarSign, Settings, Bell, Clock } from 'lucide-react';
 
 const STORAGE_KEY = 'demoTradingAccount';
@@ -62,6 +64,7 @@ const DemoTradingPage = () => {
   const [feedback, setFeedback] = useState('');
   const [chartData, setChartData] = useState([]);
   const [tradeSide, setTradeSide] = useState('buy');
+  const [pendingTrade, setPendingTrade] = useState(null);
   
   // Phase 2 Fields
   const [tradingType, setTradingType] = useState('intraday'); // intraday, swing, positional, scalping
@@ -69,6 +72,13 @@ const DemoTradingPage = () => {
   const [targetPrice, setTargetPrice] = useState(''); 
   const [showRuleBuilder, setShowRuleBuilder] = useState(false);
   const [newRule, setNewRule] = useState({ condition: 'below', threshold: '', action: 'buy', amount: '1' });
+
+  const tickerSuggestions = useMemo(() => {
+    const query = tickerInput.trim().toUpperCase();
+    return STOCK_SYMBOLS
+      .filter(symbol => !query || symbol.startsWith(query) || symbol.includes(query))
+      .slice(0, 20);
+  }, [tickerInput]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(account));
@@ -189,31 +199,48 @@ const DemoTradingPage = () => {
     if (marketPrice <= 0) return setFeedback('Market price unavailable.');
     if (tradeQty <= 0) return setFeedback('Valid quantity required.');
 
-    if (tradeSide === 'buy') {
-      if (tradeValue > availablePurchasingPower) return setFeedback(`Insufficient purchasing power. Max ${formatPrice(availablePurchasingPower)}.`);
+    setPendingTrade({
+      side: tradeSide,
+      ticker: activeTicker,
+      qty: tradeQty,
+      execPrice,
+      tradeValue,
+      orderType,
+      availablePurchasingPower,
+    });
+  };
+
+  const confirmTrade = () => {
+    if (!pendingTrade) return;
+    const { side, qty, execPrice: pendingExecPrice, tradeValue: pendingTradeValue, ticker } = pendingTrade;
+
+    if (side === 'buy') {
+      if (pendingTradeValue > availablePurchasingPower) return setFeedback(`Insufficient purchasing power. Max ${formatPrice(availablePurchasingPower)}.`);
       setAccount(prev => {
         const p = prev.positions[activeTicker] || { shares: 0, avgCost: 0 };
         return {
           ...prev, cash: prev.cash - tradeValue,
-          positions: { ...prev.positions, [activeTicker]: { shares: p.shares + tradeQty, avgCost: ((p.shares * p.avgCost) + tradeValue) / (p.shares + tradeQty) } },
-          lastPrices: { ...prev.lastPrices, [activeTicker]: marketPrice }
+          positions: { ...prev.positions, [ticker]: { shares: p.shares + qty, avgCost: ((p.shares * p.avgCost) + pendingTradeValue) / (p.shares + qty) } },
+          lastPrices: { ...prev.lastPrices, [ticker]: pendingExecPrice }
         };
       });
-      addHistory({ id: Date.now().toString(), type: 'BUY', ticker: activeTicker, shares: tradeQty, price: marketPrice, total: tradeValue, time: new Date().toISOString() });
-      setFeedback(`Bought ${tradeQty} ${activeTicker}`);
+      addHistory({ id: Date.now().toString(), type: 'BUY', ticker, shares: qty, price: pendingExecPrice, total: pendingTradeValue, time: new Date().toISOString() });
+      setFeedback(`Bought ${qty} ${ticker}`);
     } else {
-      if (tradeQty > position.shares) return setFeedback(`You only hold ${position.shares} shares.`);
-      const proceeds = tradeQty * marketPrice;
+      if (qty > position.shares) return setFeedback(`You only hold ${position.shares} shares.`);
+      const proceeds = qty * pendingExecPrice;
       setAccount(prev => {
-        const p = prev.positions[activeTicker];
-        const rem = p.shares - tradeQty;
+        const p = prev.positions[ticker];
+        const rem = p.shares - qty;
         const nPos = { ...prev.positions };
-        if (rem <= 0) delete nPos[activeTicker]; else nPos[activeTicker] = { shares: rem, avgCost: p.avgCost };
-        return { ...prev, cash: prev.cash + proceeds, positions: nPos, lastPrices: { ...prev.lastPrices, [activeTicker]: marketPrice } };
+        if (rem <= 0) delete nPos[ticker]; else nPos[ticker] = { shares: rem, avgCost: p.avgCost };
+        return { ...prev, cash: prev.cash + proceeds, positions: nPos, lastPrices: { ...prev.lastPrices, [ticker]: pendingExecPrice } };
       });
-      addHistory({ id: Date.now().toString(), type: 'SELL', ticker: activeTicker, shares: tradeQty, price: marketPrice, total: proceeds, time: new Date().toISOString() });
-      setFeedback(`Sold ${tradeQty} ${activeTicker}`);
+      addHistory({ id: Date.now().toString(), type: 'SELL', ticker, shares: qty, price: pendingExecPrice, total: proceeds, time: new Date().toISOString() });
+      setFeedback(`Sold ${qty} ${ticker}`);
     }
+
+    setPendingTrade(null);
   };
 
   const saveAutoRule = () => {
@@ -258,7 +285,17 @@ const DemoTradingPage = () => {
            </div>
         </div>
         <form onSubmit={handleTickerSubmit} className="flex gap-2">
-          <input type="text" value={tickerInput} onChange={e => setTickerInput(e.target.value.toUpperCase())} placeholder="Search Symbol" className="w-full md:w-32 px-3 py-2 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm font-bold focus:outline-none focus:border-primary" />
+          <input
+            type="text"
+            list="terminal-symbols"
+            value={tickerInput}
+            onChange={e => setTickerInput(e.target.value.toUpperCase())}
+            placeholder="Search Symbol"
+            className="w-full md:w-32 px-3 py-2 bg-gray-50 dark:bg-darkBg border border-gray-200 dark:border-darkBorder rounded-xl text-sm font-bold focus:outline-none focus:border-primary"
+          />
+          <datalist id="terminal-symbols">
+            {tickerSuggestions.map(symbol => <option key={symbol} value={symbol} />)}
+          </datalist>
           <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:bg-blue-600">LOAD</button>
         </form>
       </div>
@@ -395,6 +432,24 @@ const DemoTradingPage = () => {
           </div>
         </div>
       </div>
+
+      <TradeConfirmModal
+        isOpen={Boolean(pendingTrade)}
+        title={pendingTrade?.side === 'buy' ? 'Confirm Buy Order' : 'Confirm Sell Order'}
+        details={pendingTrade ? [
+          { label: 'Ticker', value: pendingTrade.ticker },
+          { label: 'Side', value: pendingTrade.side.toUpperCase() },
+          { label: 'Quantity', value: pendingTrade.qty },
+          { label: 'Order Type', value: pendingTrade.orderType.toUpperCase() },
+          { label: 'Estimated Price', value: formatPrice(pendingTrade.execPrice) },
+          { label: 'Estimated Total', value: formatPrice(pendingTrade.tradeValue) },
+        ] : []}
+        warning="Check the ticker, quantity, and order type carefully before confirming. This action will place the order immediately in the demo account."
+        confirmLabel={pendingTrade?.side === 'buy' ? 'Buy Now' : 'Sell Now'}
+        confirmTone={pendingTrade?.side === 'buy' ? 'emerald' : 'red'}
+        onConfirm={confirmTrade}
+        onCancel={() => setPendingTrade(null)}
+      />
     </div>
   );
 };

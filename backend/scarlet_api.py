@@ -1,16 +1,26 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import data_fetcher
+import os
 import random
 import re
 from datetime import datetime
+import requests
 
 router = APIRouter()
+
+SCARLET_API_URL = os.getenv("SCARLET_API_URL", "").strip() or (
+    "https://api.openai.com/v1/chat/completions" if os.getenv("OPENAI_API_KEY", "").strip() or os.getenv("SCARLET_API_KEY", "").strip() else ""
+)
+SCARLET_API_KEY = os.getenv("OPENAI_API_KEY", os.getenv("SCARLET_API_KEY", "")).strip()
+SCARLET_API_MODEL = os.getenv("OPENAI_MODEL", os.getenv("SCARLET_API_MODEL", "gpt-4o-mini")).strip()
+SCARLET_API_TIMEOUT = float(os.getenv("SCARLET_API_TIMEOUT", "20"))
+SCARLET_MAX_LIVE_QUOTES = int(os.getenv("SCARLET_MAX_LIVE_QUOTES", "4"))
 
 # ── Request / Response schemas ──────────────────────────────────────────────
 class ChatMessage(BaseModel):
     message: str
-    history: list = []   # [{role: "user"|"assistant", content: "..."}]
+    history: list = Field(default_factory=list)   # [{role: "user"|"assistant", content: "..."}]
 
 class ChatResponse(BaseModel):
     reply: str
@@ -98,6 +108,21 @@ def detect_ticker(text: str):
             return sym
     return None
 
+
+def detect_tickers(text: str):
+    """Find all stock tickers mentioned in the text, preserving order."""
+    upper = text.upper()
+    lower = text.lower()
+    found = []
+    for sym in STOCK_SYMBOLS:
+        pattern = r'\b' + re.escape(sym) + r'\b'
+        if re.search(pattern, upper) and sym not in found:
+            found.append(sym)
+    for sym, name in STOCK_NAMES.items():
+        if (name.lower() in lower or name.split()[0].lower() in lower) and sym not in found:
+            found.append(sym)
+    return found
+
 def detect_concept(text: str):
     """Find a market concept mentioned in the text."""
     lower = text.lower()
@@ -173,11 +198,128 @@ def generate_suggestions(intent: str, ticker: str = None):
     else:
         return ["Show TSLA price", "What is a bull market?", "How to use this dashboard?", "Explain candlestick charts"]
 
+
+def format_quote_context(quote: dict, ticker: str):
+    price = quote.get("price")
+    prev = quote.get("previous_close")
+    volume = quote.get("volume")
+    parts = [f"{ticker}: current price ${price:.2f}" if isinstance(price, (int, float)) else f"{ticker}: price {price}"]
+    if isinstance(prev, (int, float)) and isinstance(price, (int, float)) and prev:
+        pct = ((price - prev) / prev) * 100
+        parts.append(f"change {pct:+.2f}% vs previous close")
+    if isinstance(volume, (int, float)):
+        parts.append(f"volume {int(volume):,}")
+    if quote.get("timestamp"):
+        parts.append(f"as of {quote['timestamp']}")
+    return "; ".join(parts)
+
+
+def build_live_context(message: str):
+    """Fetch current market context that the AI model can use in its answer."""
+    tickers = detect_tickers(message)
+    lower = message.lower()
+    contextual_tickers = tickers[:SCARLET_MAX_LIVE_QUOTES]
+
+    if not contextual_tickers and any(word in lower for word in ["market", "stocks", "top gainers", "losers", "overview", "watchlist", "trending"]):
+        contextual_tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "TSLA", "GOOGL"][:SCARLET_MAX_LIVE_QUOTES]
+
+    if not contextual_tickers:
+        return ""
+
+    summaries = []
+    for ticker in contextual_tickers:
+        try:
+            quote = data_fetcher.fetch_realtime_quote(ticker)
+            if quote:
+                summaries.append(format_quote_context(quote, ticker))
+        except Exception:
+            continue
+
+    if not summaries:
+        return ""
+
+    return (
+        "Live market context from the dashboard backend:\n"
+        + "\n".join(f"- {item}" for item in summaries)
+    )
+
+
+def call_scarlet_api(message: str, history: list, live_context: str = ""):
+    """Call an optional external AI API using an OpenAI-compatible payload."""
+    if not SCARLET_API_URL:
+        return None
+
+    system_prompt = (
+        "You are Scarlet, a real-time stock market assistant inside a dashboard. "
+        "Answer clearly, keep replies practical, and use the provided live market context when relevant. "
+        "If the user asks about buying or selling, explain the factors to consider rather than telling them what to do. "
+        "You can answer broad stock market questions, explain indicators, describe companies, and help users navigate the app. "
+        "When live context is present, prefer it over older memory or generic assumptions."
+    )
+
+    messages = [{"role": "system", "content": system_prompt}]
+    if live_context:
+        messages.append({"role": "system", "content": live_context})
+    for item in (history or [])[-8:]:
+        role = item.get("role")
+        content = item.get("content")
+        if role in {"user", "assistant"} and content:
+            messages.append({"role": role, "content": str(content)})
+    messages.append({"role": "user", "content": message})
+
+    headers = {"Content-Type": "application/json"}
+    if SCARLET_API_KEY:
+        headers["Authorization"] = f"Bearer {SCARLET_API_KEY}"
+
+    payload = {
+        "model": SCARLET_API_MODEL,
+        "messages": messages,
+        "temperature": 0.4,
+        "max_tokens": 700,
+    }
+
+    try:
+        response = requests.post(
+            SCARLET_API_URL,
+            json=payload,
+            headers=headers,
+            timeout=SCARLET_API_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if isinstance(data, dict):
+            if data.get("reply"):
+                return str(data["reply"]).strip()
+            choices = data.get("choices") or []
+            if choices:
+                choice = choices[0] or {}
+                if isinstance(choice, dict):
+                    message_obj = choice.get("message") or {}
+                    content = message_obj.get("content")
+                    if content:
+                        return str(content).strip()
+                    text = choice.get("text")
+                    if text:
+                        return str(text).strip()
+        return None
+    except Exception:
+        return None
+
 # ── Main chat endpoint ────────────────────────────────────────────────────────
 @router.post("/scarlet/chat", response_model=ChatResponse)
 async def scarlet_chat(body: ChatMessage):
     msg = body.message.strip()
     lower = msg.lower()
+    live_context = build_live_context(msg)
+
+    # ── External AI API fallback ──
+    api_reply = call_scarlet_api(msg, body.history, live_context=live_context)
+    if api_reply:
+        return ChatResponse(
+            reply=api_reply,
+            suggestions=generate_suggestions("stock", detect_ticker(msg)) if detect_ticker(msg) else generate_suggestions("dashboard")
+        )
     
     # ── Greeting ──
     if any(g in lower for g in GREETINGS) and len(msg.split()) <= 4:
