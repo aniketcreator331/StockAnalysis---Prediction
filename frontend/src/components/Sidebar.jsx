@@ -115,7 +115,7 @@ const Sidebar = () => {
           <TrendingUp size={16} className="text-white" />
         </div>
         <div>
-          <h1 className="text-base font-black text-gray-900 dark:text-white tracking-tight leading-none">Stock<span className="text-primary">IQ</span></h1>
+          <h1 className="text-base font-black text-gray-900 dark:text-white tracking-tight leading-none">Stock Analysis <span className="text-primary">&amp; Prediction</span></h1>
           <p className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold">AI Market Platform</p>
         </div>
       </div>

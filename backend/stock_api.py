@@ -37,7 +37,7 @@ def _cache_set(cache_bucket, key, value, ttl_seconds):
 
 def _compute_ema(values, period):
     if not values or period <= 1:
-    return []
+        return []
     k = 2 / (period + 1)
     out = []
     ema = None
