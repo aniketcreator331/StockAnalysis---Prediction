@@ -237,8 +237,29 @@ def get_top_stocks():
 
 @router.get("/recommendations")
 def get_recommendations():
-    quotes = get_top_stocks()
+    quotes = data_fetcher.fetch_multiple_quotes(TOP_STOCKS[:20])
     if not isinstance(quotes, list):
         return []
+
+    for q in quotes:
+        try:
+            current = q['price']
+            prev = q['previous_close']
+            growth = ((current - prev) / prev) * 100
+            q['daily_growth'] = round(growth, 2)
+
+            if growth > 2:
+                q['recommendation'] = 'Buy'
+            elif growth < -2:
+                q['recommendation'] = 'Sell'
+            else:
+                q['recommendation'] = 'Hold'
+
+            q['volatility'] = round(abs(growth) * 1.5, 2)
+        except Exception:
+            q['daily_growth'] = 0.0
+            q['recommendation'] = 'Hold'
+            q['volatility'] = 0.0
+
     ranked = sorted(quotes, key=lambda x: x.get('daily_growth', 0), reverse=True)
     return ranked

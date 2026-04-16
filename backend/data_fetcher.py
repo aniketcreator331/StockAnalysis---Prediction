@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import yfinance as yf
 import pandas as pd
 import requests
@@ -381,9 +382,18 @@ def fetch_yfinance_quote(ticker_symbol):
         return None
 
 def fetch_multiple_quotes(symbols):
+    if not symbols:
+        return []
+
     quotes = []
-    for sym in symbols:
-        q = fetch_realtime_quote(sym)
-        if q:
-            quotes.append(q)
+    max_workers = min(8, len(symbols))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {executor.submit(fetch_realtime_quote, sym): sym for sym in symbols}
+        for future in as_completed(future_map):
+            try:
+                quote = future.result()
+                if quote:
+                    quotes.append(quote)
+            except Exception as exc:
+                print(f"Error fetching quote for {future_map[future]}: {exc}")
     return quotes
